@@ -22,6 +22,8 @@ try {
     $conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 
     $query = "SELECT 
+            DATE(connection.created_at) as data, 
+            TIME(connection.created_at) as ora, 
             connection.req_method as metodo, 
             connection.req_uri as uri, 
             connection.res_code as code, 
@@ -31,6 +33,7 @@ try {
             INNER JOIN connection_header ON connection.id = connection_header.connection_id 
             INNER JOIN header ON connection_header.header_id = header.id 
             WHERE header.name = 'X-Forwarded-For' 
+			ORDER BY connection.created_at DESC
             LIMIT 50";
     $stmt = $conn->prepare($query);
     $stmt->execute();

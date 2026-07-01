@@ -6,7 +6,6 @@
 #include <sys/file.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include <sys/time.h>
 
 struct header{
     char n[32];
@@ -34,12 +33,12 @@ struct http_session {
 
 void print_escaped_json(FILE *f, const char *str) {
     if (!str) return;
-
+    
     // Salta lo spazio iniziale residuo del parsing HTTP
     if (*str == ' ') {
         str++;
     }
-
+    
     while (*str) {
         if (*str == '"' || *str == '\\') {
             fputc('\\', f);
@@ -53,20 +52,48 @@ void save_session(struct http_session *hs) {
     // 1. Genera il nome del file basato sull'orario corrente (HH-MM.json)
     time_t rawtime;
     struct tm *timeinfo;
-    struct timeval tv;
     char filename[32];
 
     time(&rawtime);
     timeinfo = localtime(&rawtime);
-    gettimeofday(&tv, NULL);
     // Genera una stringa come "20-15.json"
-    strftime(filename, sizeof(filename), "log/%H-%M", timeinfo);
-    sprintf(filename + strlen(filename), "_u%ld_pid_%d.json", tv.tv_usec, getpid());
+    strftime(filename, sizeof(filename), "log/%H-%M.json", timeinfo);
 
     // 2. Apriamo in "r+" (lettura e scrittura senza troncare)
-    FILE *f = fopen(filename, "w");
-    if (!f) return;
-        
+    FILE *f = fopen(filename, "r+");
+    if (!f) {
+        // Se il file non esiste (è iniziato un nuovo minuto), lo creiamo in modalità "w"
+        f = fopen(filename, "w");
+        if (!f) return;
+        fprintf(f, "[\n"); // Inizializza il nuovo file JSON con l'array aperto
+    }
+
+    int fd = fileno(f);
+    flock(fd, LOCK_EX);
+
+    // Spostiamoci alla fine del file per capire dove siamo
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+
+    if (size > 5) {
+        // Il file contiene già dati. Dobbiamo tornare indietro
+        // per sovrascrivere l'ultima parentesi quadra ']' e gli spazi/invii.
+        long pos = size - 1;
+        char ch;
+
+        while (pos > 0) {
+            fseek(f, pos, SEEK_SET);
+            ch = fgetc(f);
+            // Cerchiamo la parentesi quadra di chiusura dell'array
+            if (ch == ']') {
+                // Ci posizioniamo esattamente sopra la ']' per sovrascriverla
+                fseek(f, pos, SEEK_SET);
+                fprintf(f, ",\n"); // Sostituiamo ']' con una virgola
+                break;
+            }
+            pos--;
+        }
+    }
 
     // ==================== SCRITTURA DATI ====================
     fprintf(f, "  {\n    \"connection\": {\n");
@@ -98,17 +125,15 @@ void save_session(struct http_session *hs) {
     }
 
     // Chiusura dell'oggetto corrente E chiusura dell'array JSON
-    fprintf(f, "        }\n      }\n    }\n  }\n");
+    fprintf(f, "        }\n      }\n    }\n  }\n]\n");
 
     fflush(f);
+    flock(fd, LOCK_UN);
     fclose(f);
 }
 
 void parse(char* buff, int buff_len, int mod, struct timer *t, struct http_session *hs){  // mod = 0 request, mod = 1 response, in base a questo avvia o stoppa il timer
     char* statusLine;
-
-    // timer stop se mod = 1
-    // if(mod == 1) {t->stop = clock();}  è sbagliato qui
 
     if(strstr(buff, "\r\n\r\n") == NULL) return; //se non ci sono tutti gli header
 
@@ -149,13 +174,10 @@ void parse(char* buff, int buff_len, int mod, struct timer *t, struct http_sessi
     } else {
         hs->res_h_count = headerIndex - 1;
         sscanf(buff, "%s %d %[^\r\n]", hs->res_ver, &hs->status_code, hs->phrase);
-        //hs->response_time = ((double) (t->stop - t->start) * 1000.0)/ CLOCKS_PER_SEC;
     }
 
-    // timer start se mod = 0
     if(mod == 0){t->start = clock();}
 }
-
 /*
 void forward(int src, int dest, int mod, struct timer *t, struct http_session *hs) {
     char buffer[8192];  // limite apache per header circa 8kb
@@ -169,7 +191,7 @@ void forward(int src, int dest, int mod, struct timer *t, struct http_session *h
     buffer_cpy[bytes_read] = '\0';
     parse(buffer_cpy, bytes_read, mod, t, hs);
 
-
+    
 // Inviamo il primo blocco a destinazione
     bytes_written = write(dest, buffer, bytes_read);
     if (bytes_written <= 0) return;
@@ -180,7 +202,7 @@ void forward(int src, int dest, int mod, struct timer *t, struct http_session *h
     while (bytes_read == sizeof(buffer) - 1) {
         bytes_read = read(src, buffer, sizeof(buffer) - 1);
         if (bytes_read <= 0) break;
-
+        
         bytes_written = write(dest, buffer, bytes_read);
         if (bytes_written <= 0) break;
     }
@@ -193,73 +215,66 @@ void forward(int src, int dest, int mod, struct timer *t, struct http_session *h
             break;
         }
     }
-    //fine risposta server
-    t->stop = clock();
-    hs->response_time = ((double) (t->stop - t->start) * 1000.0) / CLOCKS_PER_SEC;
+
 }
 */
 
-void forward(int src, int dest, int mod, struct timer *t, struct http_session *hs) {
+void forward(int client_fd, int server_fd, struct timer *t, struct http_session *hs) {
     char buffer[8192];
     char buffer_cpy[8192];
     int bytes_read, bytes_written;
-    int is_first_chunk = 1;
-    
-    long long content_length = -1;
-    long long total_bytes_transferred = 0;
+    int is_first_req = 1;
+    int is_first_res = 1;
 
-    while ((bytes_read = read(src, buffer, sizeof(buffer))) > 0) {
-        
-        if (is_first_chunk) {
-            memcpy(buffer_cpy, buffer, bytes_read);
-            buffer_cpy[bytes_read] = '\0';
-            parse(buffer_cpy, bytes_read, mod, t, hs);
-            is_first_chunk = 0;
+    fd_set read_fds;
+    int max_fd = (client_fd > server_fd) ? client_fd : server_fd;
 
-            // Se siamo in modalità risposta, cerchiamo il Content-Length negli header appena letti
-            if (mod == 1) {
-                for (int h = 0; h < hs->res_h_count; h++) {
-                    if (strcasecmp(hs->res_headers[h].n, "Content-Length") == 0) {
-                        content_length = atoll(hs->res_headers[h].v);
-                        break;
-                    }
-                }
-                
-                // Calcoliamo quanti byte di "body" (immagine) erano già presenti nel primo blocco oltre agli header
-                char *body_start = strstr(buffer_cpy, "\r\n\r\n");
-                if (body_start != NULL) {
-                    body_start += 4;
-                    long long header_len = body_start - buffer_cpy;
-                    total_bytes_transferred += (bytes_read - header_len);
-                }
-            }
-        } else if (mod == 1) {
-            total_bytes_transferred += bytes_read;
-        }
+    t->start = clock();
 
-        // SCRITTURA ROBUSTA: garantisce che tutto il buffer letto venga inviato, 
-        // gestendo eventuali buffer di rete saturi lato browser
-        int total_written = 0;
-        while (total_written < bytes_read) {
-            bytes_written = write(dest, buffer + total_written, bytes_read - total_written);
-            if (bytes_written <= 0) {
-                return; // Il socket di destinazione si è chiuso bruscamente, usciamo
-            }
-            total_written += bytes_written;
-        }
-        
-        // Se è una richiesta GET (mod == 0), usciamo subito dopo il primo invio degli header
-        if (mod == 0) {
+    while (1) {
+        FD_ZERO(&read_fds);
+        FD_SET(client_fd, &read_fds);
+        FD_SET(server_fd, &read_fds);
+
+        if (select(max_fd + 1, &read_fds, NULL, NULL, NULL) < 0) {
             break; 
         }
 
-        // Se abbiamo raggiunto o superato i byte dichiarati nel Content-Length, 
-        // interrompiamo il ciclo senza aspettare la chiusura del socket. Niente più caricamenti infiniti!
-        if (mod == 1 && content_length > 0 && total_bytes_transferred >= content_length) {
-            break;
+        // 1. DAL BROWSER -> AD APACHE
+        if (FD_ISSET(client_fd, &read_fds)) {
+            bytes_read = read(client_fd, buffer, sizeof(buffer));
+            if (bytes_read <= 0) break; // Il browser ha chiuso o finito
+
+            if (is_first_req) {
+                memcpy(buffer_cpy, buffer, bytes_read);
+                buffer_cpy[bytes_read] = '\0';
+                parse(buffer_cpy, bytes_read, 0, t, hs);
+                is_first_req = 0;
+            }
+
+            write(server_fd, buffer, bytes_read);
+        }
+
+        // 2. DA APACHE -> AL BROWSER (Qui gestiamo il 206, 200, ecc.)
+        if (FD_ISSET(server_fd, &read_fds)) {
+            bytes_read = read(server_fd, buffer, sizeof(buffer));
+            if (bytes_read <= 0) break; // Apache ha chiuso il canale (fine trasmissione)
+
+            if (is_first_res) {
+                memcpy(buffer_cpy, buffer, bytes_read);
+                buffer_cpy[bytes_read] = '\0';
+                parse(buffer_cpy, bytes_read, 1, t, hs);
+                is_first_res = 0;
+            }
+
+            // Invio brutale al browser. Se il browser accetta solo un pezzo (206),
+            // inviamo quello che c'è. Se la connessione rimane aperta per il pezzo dopo,
+            // la select() farà un altro giro e leggerà il resto.
+            write(client_fd, buffer, bytes_read);
         }
     }
-//fine risposta server
+
+    // Quando usciamo dal ciclo while, significa che tutto il contenuto è stato inoltrato.
     t->stop = clock();
     hs->response_time = ((double) (t->stop - t->start) * 1000.0) / CLOCKS_PER_SEC;
 }
@@ -298,8 +313,8 @@ int main() {
                 struct http_session session;
                 t.start = 0;
                 t.stop = 0;
-                forward(client_fd, server_fd, 0, &t, &session);
-                forward(server_fd, client_fd, 1, &t, &session);
+                forward(client_fd, server_fd, &t, &session);
+                //forward(server_fd, client_fd, &t, &session);
 
                 save_session(&session);
             }
