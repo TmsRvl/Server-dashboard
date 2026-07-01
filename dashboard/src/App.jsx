@@ -15,8 +15,8 @@ function App() {
   const [er, setEr] = useState('0');
 
   const colonne = [
-    { label: 'Data', accessor: 'data', minWidth: 150, width: "1.2fr", type: "date", filterable: false, align: "left"},
-    { label: 'Ora', accessor: 'ora', minWidth: 150, width: "1.2fr", type: "string", filterable: false, align: "left"},
+    { label: 'Data', accessor: 'data', minWidth: 150, width: "1.2fr", type: "date", filterable: true, align: "left"},
+    { label: 'Ora', accessor: 'ora', minWidth: 150, width: "1.2fr", filterable: false, align: "left"},
     { label: 'Metodo', accessor: 'metodo', minWidth: 150, width: "1.2fr", type: "string", filterable: true, align: "left"},
     { label: 'URI', accessor: 'uri', minWidth: 150, width: "1.2fr", type: "string", filterable: false, align: "left"},
     { label: 'Code', accessor: 'code', minWidth: 150, width: "1.2fr", type: "number", filterable: true, filterType: 'number',align: "left"},
