@@ -6,9 +6,9 @@ TODO:
 - (X) aggiungere al db il timestamp
 - (X) modificare il servicio nodejs perchè logghi anche il timestamp
 
-- ( ) aggiungere al frontend dei filtri riguardanti i pacchetti da usare, data (da a), oppure ora e min, tipo(GET/POST) di pacchetti da filtrare oppure dal response code
-- ( ) scegliere dei limiti da inserire per non permettere all'utente di fare il matto (es non scegliere un periodo più lungo di 3-5 gg per il fitraggio)
-- ( ) tutte le altre metriche dovranno essere aggiornate in base ai filtraggi: es grafici, tempo di risposta media e tasso di errore.
+- (X) aggiungere al frontend dei filtri riguardanti i pacchetti da usare, data (da a), oppure ora e min, tipo(GET/POST) di pacchetti da filtrare
+- (X) scegliere dei limiti da inserire per non permettere all'utente di fare il matto (es non scegliere un periodo più lungo di 3-5 gg per il fitraggio)
+- (X) tutte le altre metriche dovranno essere aggiornate in base ai filtraggi: es grafici, tempo di risposta media e tasso di errore.
 - ( ) aggiungere un paio di grafici esempio: tempo di risposta - tempo | tasso errore - tempo. NOTA: l'ideale sarebbe che l'asse del tempo cambi in base alla selezione del filtro sulla pagina principale es: l'utente seleziona più giorni allora l'asse del tempo sarà in giori, se sceglie una data specifica allora sarà in ore ecc.
 
 - ( ) aggiungere il dettaglio per ogni riga, rendere ogni riga espandibile per consultare i dettagli richiesta-risposta 
@@ -17,3 +17,4 @@ TODO:
 - ( ) capire se fare delle sezioni dedicate nel front-end apposta per questo
 
 - ( ) migliorare il proxy in modo tale che sia in grado di gestire qualsiasi tipo di traffico (200, 206, chunked)
+- ( ) formattare tutti i codici in inglese 

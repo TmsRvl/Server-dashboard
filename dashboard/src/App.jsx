@@ -9,6 +9,8 @@ const OGGI = new Date().toISOString().split('T')[0];
 const PERIODO = 8; //indica il massimo periodo selezionabile in termini di giorni nel campo data inizio/fine nella parte dei filtri
 
 function App() {
+  const [query, setQuery] = useState('');
+
   // Allineati i tipi del mockup (code e tempo come numeri reali)
   const [datiTraffico, setDatiTraffico] = useState([
     { metodo: 'Caricamento...', uri: 'Attendi...', code: 0, ip: "0.0.0.0", tempo: 0 }
@@ -23,7 +25,6 @@ function App() {
   const [filtroOraInizio, setFiltroOraInizio] = useState('');
   const [filtroOraFine, setFiltroOraFine] = useState('');
   const [filtroMetodo, setFiltroMetodo] = useState('ALL');
-  const [filtroCode, setFiltroCode] = useState('');
   const [maxDataFine, setMaxDataFine] = useState(OGGI);
 
   const colonne = [
@@ -37,40 +38,31 @@ function App() {
     //qui ci metterei il bottone per i dettagli
   ];
 
+  const caricaTuttiIDati = () => {
+    fetch(`http://192.168.1.100:5554/atr.php` + (query !== '' ? '?' + query : ''))
+      .then(res => res.json())
+      .then(d => setAtr(Number(d.data[0].atr).toFixed(3)))
+      .catch(err => console.error("Errore ATR:", err));
+
+    fetch(`http://192.168.1.100:5554/er.php` + (query !== '' ? '?' + query : ''))
+      .then(res => res.json())
+      .then(d => setEr(Number(d.data[0].er).toFixed(2)))
+      .catch(err => console.error("Errore Er:", err));
+
+    fetch(`http://192.168.1.100:5554/api.php` + (query !== '' ? '?' + query : ''))
+      .then(res => res.json())
+      .then(d => setDatiTraffico(d.data))
+      .catch(err => console.error("Errore Traffico:", err));
+  };
+
   useEffect(() => {
-    const caricaAtr = () => {
-      fetch(`http://192.168.1.100:5554/atr.php`)
-        .then(res => res.json())
-        .then(d => setAtr(Number(d.data[0].atr).toFixed(3)))
-        .catch(err => console.error("Errore ATR:", err));
-    };
-
-    const caricaEr = () => {
-      fetch(`http://192.168.1.100:5554/er.php`)
-        .then(res => res.json())
-        .then(d => setEr(Number(d.data[0].er).toFixed(2))) // Corretto setTe in setEr
-        .catch(err => console.error("Errore Er:", err));
-    };
-
-    const caricaTraffico = () => {
-      fetch(`http://192.168.1.100:5554/api.php`)
-        .then(res => res.json())
-        .then(d => setDatiTraffico(d.data))
-        .catch(err => console.error("Errore Traffico:", err));
-    };
-
-    caricaAtr();
-    caricaEr();
-    caricaTraffico();
-
+    caricaTuttiIDati(); 
     const intervalId = setInterval(() => {
-      caricaAtr();
-      caricaEr();
-      caricaTraffico();
+      caricaTuttiIDati(); 
     }, INTERVALLO_AGGIORNAMENTO);
 
     return () => clearInterval(intervalId);
-  }, []);
+  }, [query]); 
 
   const handleDataInizioChange = (valore) => {
     setFiltroDataInizio(valore);
@@ -127,28 +119,12 @@ function App() {
     if (!dataInizio) return OGGI;
 
     const data = new Date(dataInizio);
-    data.setDate(data.getDate() + (PERIODO - 1)); 
+    data.setDate(data.getDate() + (PERIODO - 1));
 
     const dataFormattata = data.toISOString().split('T')[0];
 
-    // Ritorna la data più piccola tra "Inizio + 5 giorni" e "Oggi"
     return dataFormattata < OGGI ? dataFormattata : OGGI;
   };
-
-  // --- LOGICA DI FILTRAGGIO ---
-  const datiFiltrati = datiTraffico.filter(pacchetto => {
-    if (filtroMetodo !== 'ALL' && pacchetto.metodo !== filtroMetodo) return false;
-    if (filtroCode && pacchetto.code.toString() !== filtroCode) return false;
-    if (filtroDataInizio && pacchetto.data < filtroDataInizio) return false;
-    if (filtroDataFine && pacchetto.data > filtroDataFine) return false;
-
-    if (filtroDataInizio && filtroDataInizio === filtroDataFine) {
-      if (filtroOraInizio && pacchetto.ora < filtroOraInizio) return false;
-      if (filtroOraFine && pacchetto.ora > filtroOraFine) return false;
-    }
-
-    return true;
-  });
 
   const resetFiltri = () => {
     setFiltroDataInizio('');
@@ -156,7 +132,42 @@ function App() {
     setFiltroOraInizio('');
     setFiltroOraFine('');
     setFiltroMetodo('ALL');
-    setFiltroCode('');
+  };
+
+  const cerca = () => {
+    if ((filtroDataInizio && !filtroDataFine) || (!filtroDataInizio && filtroDataFine)) {
+      resetFiltri();
+      alert("Devi impostare sia la data d'inizio che quella di fine!");
+      return;
+    }
+    if ((filtroDataInizio === filtroDataFine) && (filtroOraInizio && !filtroOraFine)) {
+      resetFiltri();
+      alert("Devi impostare anche l'ora di fine!");
+      return;
+    }
+    if (!filtroDataInizio && !filtroDataFine && filtroMetodo === 'ALL') {
+      setQuery('');
+      caricaTuttiIDati('');
+      return;
+    }
+    //qui posso costruire finalmente la query
+    var buff = '';
+    if (filtroDataInizio) {
+      if (filtroDataInizio === filtroDataFine) {
+        if (filtroOraInizio) {
+          buff += 'dataini=' + filtroDataInizio + '&datafin=' + filtroDataFine + '&oraini=' + filtroOraInizio + '&orafin=' + filtroOraFine;
+        } else {
+          buff += 'dataini=' + filtroDataInizio + '&datafin=' + filtroDataFine;
+        }
+      } else {
+        buff += 'dataini=' + filtroDataInizio + '&datafin=' + filtroDataFine;
+      }
+    }
+
+    if (filtroMetodo !== 'ALL') { buff += (filtroDataInizio ? '&' : '') + 'metodo=' + filtroMetodo; }
+
+    console.log(buff);
+    setQuery(buff);
   };
 
 
@@ -231,29 +242,21 @@ function App() {
             </select>
           </div>
 
-          <div>
-            <label style={{ display: 'block', fontSize: '12px' }}>Code:</label>
-            <input
-              type="number"
-              placeholder="Es. 200"
-              style={{ width: '80px' }}
-              value={filtroCode}
-              onChange={e => setFiltroCode(e.target.value)}
-            />
-          </div>
-
           <div style={{ flexGrow: 1 }} />
 
-          <button onClick={resetFiltri} style={{ padding: '3px 10px',width: '80px', height: '24px', cursor: 'pointer'}}>Cancella</button>
-          <button 
-            onClick={() => console.log('Filtri applicati:', { filtroDataInizio, filtroDataFine, filtroOraInizio, filtroOraFine, filtroMetodo, filtroCode })} 
-            style={{ 
-              padding: '3px 10px', 
-              cursor: 'pointer', 
-              backgroundColor: '#007bff', 
+          <button onClick={resetFiltri} style={{ padding: '3px 10px', width: '80px', height: '24px', cursor: 'pointer' }}>Cancella</button>
+          <button
+            onClick={() => {
+              cerca();
+              console.log('Filtri applicati:', { filtroDataInizio, filtroDataFine, filtroOraInizio, filtroOraFine, filtroMetodo });
+            }}
+            style={{
+              padding: '3px 10px',
+              cursor: 'pointer',
+              backgroundColor: '#007bff',
               width: '70px',
               height: '24px',
-              color: 'white', 
+              color: 'white',
               border: 'none',
               borderRadius: '3px',
               fontWeight: 'bold',

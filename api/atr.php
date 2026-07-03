@@ -9,6 +9,20 @@ $username = "log_user";
 $password = "password";
 
 try {
+    $fillter = "1";
+    if(!empty($_GET)){
+        if(isset($_GET["dataini"]) && isset($_GET["datafin"])){
+            if($_GET["dataini"] == $_GET["datafin"] && isset($_GET["oraini"])){    
+                $fillter .= " AND connection.created_at BETWEEN '{$_GET['dataini']} {$_GET['oraini']}:00' AND '{$_GET['datafin']} {$_GET['orafin']}:00'";
+            }else{
+                $fillter .= " AND connection.created_at BETWEEN '{$_GET['dataini']} 00:00:00' AND '{$_GET['datafin']} 23:59:59'";
+            }
+        }
+        if(isset($_GET["metodo"])){
+            $fillter .= " AND req_method = '{$_GET['metodo']}'";
+        }
+    }
+
     $conn = new PDO("mysql:host=" . $host . ";dbname=" . $db_name . ";charset=utf8", $username, $password);
     
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -16,7 +30,8 @@ try {
 
     $query = "SELECT 
             AVG(res_time) as atr
-            FROM connection";
+            FROM connection
+            WHERE {$fillter}";
     $stmt = $conn->prepare($query);
     $stmt->execute();
 
