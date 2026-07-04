@@ -48,7 +48,7 @@ try {
             WHERE {$filter}
             GROUP BY tempo
             ORDER BY tempo";
-    }else if ($differenza->days < 3){  // se sono selezionati tipo 3 gg o meno mostrare per ora altrimenti per ogni giorno
+    }else if ($differenza->days < 3 && !empty($_GET)){  // se sono selezionati tipo 3 gg o meno mostrare per ora altrimenti per ogni giorno
         $query = "SELECT 
             DATE_FORMAT(created_at, '%d-%m %H:00') AS tempo,
             AVG(res_time) AS trm

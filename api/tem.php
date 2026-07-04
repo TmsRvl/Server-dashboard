@@ -48,7 +48,7 @@ try {
             WHERE {$filter}
             GROUP BY tempo
             ORDER BY tempo";
-    }else if ($differenza->days < 3){
+    }else if ($differenza->days < 3 && !empty($_GET)){
         $query = "SELECT 
             DATE_FORMAT(created_at, '%d-%m %H:00') AS tempo,
             (SUM(res_code NOT BETWEEN 200 AND 299) * 100.0) / COUNT(*) AS tem
