@@ -15,10 +15,14 @@ $username = "log_user";
 $password = "password";
 
 try {
+    $differenza = 0;
     $sameday = 0;
     $filter = "1=1";
     if(!empty($_GET)){
         if(isset($_GET["dataini"]) && isset($_GET["datafin"])){
+            $inizio = new DateTime($_GET["dataini"]);
+            $fine = new DateTime($_GET["datafin"]);
+            $differenza = $inizio->diff($fine);
             if($_GET["dataini"] == $_GET["datafin"]) {$sameday = 1;}
             if($_GET["dataini"] == $_GET["datafin"] && isset($_GET["oraini"])){    
                 $filter .= " AND connection.created_at BETWEEN '{$_GET['dataini']} {$_GET['oraini']}:00' AND '{$_GET['datafin']} {$_GET['orafin']}:00'";
@@ -44,9 +48,17 @@ try {
             WHERE {$filter}
             GROUP BY tempo
             ORDER BY tempo";
-    }else{
+    }else if ($differenza->days < 3){
         $query = "SELECT 
             DATE_FORMAT(created_at, '%d-%m %H:00') AS tempo,
+            (SUM(res_code NOT BETWEEN 200 AND 299) * 100.0) / COUNT(*) AS tem
+            FROM connection
+            WHERE {$filter}
+            GROUP BY tempo
+            ORDER BY tempo";
+    }else {
+        $query = "SELECT 
+            DATE_FORMAT(created_at, '%d-%m') AS tempo,
             (SUM(res_code NOT BETWEEN 200 AND 299) * 100.0) / COUNT(*) AS tem
             FROM connection
             WHERE {$filter}

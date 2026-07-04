@@ -35,6 +35,7 @@ try {
     $conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 
     $query = "SELECT 
+            connection.id as id,
             DATE(connection.created_at) as data, 
             TIME(connection.created_at) as ora, 
             connection.req_method as metodo, 

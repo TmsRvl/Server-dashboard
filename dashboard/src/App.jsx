@@ -14,10 +14,9 @@ import {
 
 const INTERVALLO_AGGIORNAMENTO = 5000;
 const OGGI = new Date().toISOString().split('T')[0];
-const PERIODO = 8;
+const PERIODO = 20;
 
 function App() {
-  // Stato per la navigazione: 'tabella' | 'tempo' | 'errori'
   const [paginaAttiva, setPaginaAttiva] = useState('tabella');
 
   const [query, setQuery] = useState('');
@@ -26,12 +25,13 @@ function App() {
   ]);
   const [atr, setAtr] = useState('...');
   const [er, setEr] = useState('0');
+  const [dettagliModal, setDettagliModal] = useState(null);
 
   const [tempoRispostaMedio, setTempoRispostaMedio] = useState([
-    { tempo: "..." , trm: "0.00" }
+    { tempo: "...", trm: "0.00" }
   ]);
   const [tassoErroreMedio, setTassoErroreMedio] = useState([
-    { tempo: "..." , tem: "0.00" }
+    { tempo: "...", tem: "0.00" }
   ]);
 
   const [filtroDataInizio, setFiltroDataInizio] = useState('');
@@ -41,24 +41,53 @@ function App() {
   const [filtroMetodo, setFiltroMetodo] = useState('ALL');
   const [maxDataFine, setMaxDataFine] = useState(OGGI);
 
+
   const colonne = [
-    { label: 'Data', accessor: 'data', minWidth: 150, width: "1.2fr", type: "date", filterable: true, align: "left" },
-    { label: 'Ora', accessor: 'ora', minWidth: 150, width: "1.2fr", filterable: false, align: "left" },
-    { label: 'Metodo', accessor: 'metodo', minWidth: 150, width: "1.2fr", type: "string", filterable: true, align: "left" },
-    { label: 'URI', accessor: 'uri', minWidth: 150, width: "1.2fr", type: "string", filterable: false, align: "left" },
-    { label: 'Code', accessor: 'code', minWidth: 150, width: "1.2fr", type: "number", filterable: true, filterType: 'number', align: "left", 
-    cellRenderer: ({ row }) => {
-    const codice = Number(row.code);
-    const colore = (codice >= 200 && codice <= 299) ? '#0f532a' : '#720507';
-    const bgcolor = (codice >= 200 && codice <= 299) ? '#2ed573' : '#f18284';
-    return (
-      <span style={{ color: bgcolor, borderRadius: '5px', paddingInline: '4px', backgroundColor: colore, fontWeight: 'bold' }}>
-        {codice}
-      </span>
-    );
-    }},
-    { label: 'IP', accessor: 'ip', minWidth: 150, width: "1.2fr", type: "string", filterable: false, align: "left" },
-    { label: 'Tempo (ms)', accessor: 'tempo', minWidth: 150, width: "1.2fr", type: "number", filterable: true, align: "left" }
+    { label: 'Data', accessor: 'data', minWidth: 110, width: "1.2fr", type: "date", filterable: true, align: "left" },
+    { label: 'Ora', accessor: 'ora', minWidth: 90, width: "1.0fr", filterable: false, align: "center" },
+    { label: 'Metodo', accessor: 'metodo', minWidth: 80, width: "0.8fr", type: "string", filterable: true, align: "center" },
+    { label: 'URI', accessor: 'uri', minWidth: 150, width: "2.0fr", type: "string", filterable: false, align: "left" },
+
+    {
+      label: 'Code', accessor: 'code',
+      minWidth: 70,
+      width: "0.6fr",
+      type: "number", filterable: true, filterType: 'number', align: "center",
+      cellRenderer: ({ row }) => {
+        const codice = Number(row.code);
+        const colore = (codice >= 200 && codice <= 299) ? '#0f532a' : '#720507';
+        const bgcolor = (codice >= 200 && codice <= 299) ? '#2ed573' : '#f18284';
+        return (
+          <span style={{ color: bgcolor, borderRadius: '5px', paddingInline: '4px', backgroundColor: colore, fontWeight: 'bold' }}>
+            {codice}
+          </span>
+        );
+      }
+    },
+    { label: 'IP', accessor: 'ip', minWidth: 120, width: "1.2fr", type: "string", filterable: false, align: "center" },
+    { label: 'Tempo (ms)', accessor: 'tempo', minWidth: 100, width: "1.0fr", type: "number", filterable: true, align: "center" },
+    {label: '', accessor: 'id', minWidth: 80, width: "0.7fr", filterable: false, align: "center",
+      cellRenderer: ({ row }) => {
+        return (
+          <button
+            onClick={() => mostraDettagli(row.id)}
+            style={{
+              padding: '4px 8px',
+              border: 'none',
+              borderRadius: '4px',
+              width: '100%',
+              cursor: 'pointer',
+              backgroundColor: 'transparent',
+              color: '#fff',
+              fontWeight: 'bold',
+              transition: 'background-color 0.5s',
+            }}
+          >
+            <u>Espandi</u>
+          </button>
+        );
+      }
+    }
   ];
 
   const caricaTuttiIDati = () => {
@@ -77,15 +106,15 @@ function App() {
       .then(d => setDatiTraffico(d.data))
       .catch(err => console.error("Errore Traffico:", err));
 
-    
+
     fetch(`http://192.168.1.100:5554/trm.php` + (query !== '' ? '?' + query : ''))
       .then(res => res.json())
       .then(d => setTempoRispostaMedio(d.data))
-      .catch(err => console.error("Errore Traffico:", err));
+      .catch(err => console.error("Errore TRM:", err));
     fetch(`http://192.168.1.100:5554/tem.php` + (query !== '' ? '?' + query : ''))
       .then(res => res.json())
       .then(d => setTassoErroreMedio(d.data))
-      .catch(err => console.error("Errore Traffico:", err));
+      .catch(err => console.error("Errore TEM:", err));
   };
 
   useEffect(() => {
@@ -97,6 +126,24 @@ function App() {
     return () => clearInterval(intervalId);
   }, [query]);
 
+  const mostraDettagli = (id) => {
+    fetch(`http://192.168.1.100:5554/info.php?id=${id}`)
+      .then((response) => {
+        if (!response.ok) throw new Error("Errore di rete o server non raggiungibile");
+        return response.json();
+      })
+      .then((data) => {
+        if (data.status === "success" && data.connection.length > 0) {
+          setDettagliModal(data);
+        } else {
+          alert("Nessun dato trovato per questa connessione.");
+        }
+      })
+      .catch((err) => {
+        console.error("Errore INFO:", err);
+        alert("Impossibile recuperare i dettagli.");
+      });
+  };
 
   const handleDataInizioChange = (valore) => {
     setFiltroDataInizio(valore);
@@ -199,45 +246,75 @@ function App() {
     marginBottom: '8px'
   });
 
+  const stiliModal = {
+    overlay: {
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      display: 'flex', justifyContent: 'center', alignItems: 'center',
+      zIndex: 9999, backdropFilter: 'blur(4px)'
+    },
+    modal: {
+      backgroundColor: '#1a1f2c', borderRadius: '8px', padding: '25px',
+      width: '90%', maxWidth: '1000px', maxHeight: '85vh', color: '#fff',
+      overflowY: 'auto', boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+      position: 'relative', fontFamily: 'sans-serif', border: '1px solid #2d3748'
+    },
+    chiudiBtn: {
+      position: 'absolute', top: '12px', right: '15px', border: 'none',
+      background: 'none', fontSize: '22px', cursor: 'pointer', color: '#cbd5e1'
+    },
+    sezioneTitolo: (colore) => ({
+      color: colore, borderBottom: `2px solid ${colore}`, paddingBottom: '5px', marginTop: '20px', marginBottom: '10px'
+    }),
+    badgeCodice: (code) => ({
+      backgroundColor: code >= 200 && code <= 299 ? '#0f532a' : '#720507',
+      color: code >= 200 && code <= 299 ? '#2ed573' : '#f18284',
+      padding: '3px 8px', borderRadius: '4px', fontWeight: 'bold', marginLeft: '5px'
+    })
+  };
+
   return (
     <div style={{
       display: 'flex',
-      width: '100%',        
+      width: '100%',
       minHeight: '100vh',
       backgroundColor: '#121620',
-      color: '#fff',
+      color: '#ffffff',
       fontFamily: 'sans-serif',
       margin: 0,
-      padding: 0
+      padding: 0,
+      overflowX: 'hidden'
     }}>
-
-      {/* MENU LATERALE */}
-      <aside style={{ width: '10%', backgroundColor: '#1a1f2c', padding: '20px', borderRight: '1px solid #2d3748' }}>
-        <h3 style={{ color: 'gainsboro', marginTop: '15px', marginBottom: '40px', paddingBottom: '10px', fontSize: '16px', letterSpacing: '5px', borderBottom: '1px solid white'}}>ATTIVITÀ</h3>
+      <aside style={{ width: '200px', minWidth: '200px', backgroundColor: '#1a1f2c', padding: '20px', borderRight: '1px solid #2d3748', boxSizing: 'border-box' }}>
+        <h3 style={{ color: 'gainsboro', marginTop: '15px', marginBottom: '40px', paddingBottom: '10px', fontSize: '16px', letterSpacing: '5px', borderBottom: '1px solid white' }}>ATTIVITÀ</h3>
         <button style={stileBottoneMenu(paginaAttiva === 'tabella')} onClick={() => setPaginaAttiva('tabella')}>
-         Tabella Traffico
+          Tabella Traffico
         </button>
         <button style={stileBottoneMenu(paginaAttiva === 'tempo')} onClick={() => setPaginaAttiva('tempo')}>
-         Tempo Risposta
+          Tempo Risposta
         </button>
         <button style={stileBottoneMenu(paginaAttiva === 'errori')} onClick={() => setPaginaAttiva('errori')}>
           Tasso Errore
         </button>
       </aside>
 
-      {/* CONTENUTO PRINCIPALE */}
-      <main style={{ flex: 1, padding: '30px', overflowY: 'auto' }}>
+      <main style={{
+        flex: 1,
+        padding: '30px',
+        minWidth: 0,
+        overflowY: 'auto',
+        boxSizing: 'border-box'
+      }}>
 
         {/* HEADER STATISTICHE SEMPRE VISIBILE */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
           <h2 style={{ margin: 0 }}>Monitoraggio Traffico di Rete</h2>
           <div style={{ display: 'flex', gap: '40px', fontSize: '15px' }}>
-            <span>Tempo medio risposta: <b style={{ color: (paginaAttiva === 'tempo') ? '#9292e2' : 'gainsboro', backgroundColor: (paginaAttiva === 'tempo') ? '#0505af' : 'transparent', padding: '3px', borderRadius: '6px', fontSize: '16px' }}>{atr}</b> ms</span>
+            <span>Tempo medio risposta: <b style={{ color: (paginaAttiva === 'tempo') ? '#9292e2' : 'gainsboro', backgroundColor: (paginaAttiva === 'tempo') ? '#0505af' : 'transparent', padding: '3px', borderRadius: '6px', fontSize: '16px' }}>{atr} ms</b></span>
             <span>Tasso di errore: <b style={{ color: (paginaAttiva === 'errori') ? '#cc9192' : 'gainsboro', backgroundColor: (paginaAttiva === 'errori') ? '#720507' : 'transparent', padding: '3px', borderRadius: '6px', fontSize: '16px' }}>{er}%</b> </span>
           </div>
         </div>
 
-        {/* PAGINA 1: TABELLA E FILTRI */}
         {paginaAttiva === 'tabella' && (
           <>
             <fieldset style={{ border: '1px solid #2d3748', borderRadius: '5px', padding: '15px', marginBottom: '20px', backgroundColor: '#1a1f2c' }}>
@@ -279,7 +356,9 @@ function App() {
               </div>
             </fieldset>
 
-            <SimpleTable defaultHeaders={colonne} rows={datiTraffico} theme='modern-dark' columnBorders={true} />
+            <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              <SimpleTable defaultHeaders={colonne} rows={datiTraffico} theme='modern-dark' columnBorders={true} />
+            </div>
           </>
         )}
 
@@ -292,7 +371,7 @@ function App() {
                 <LineChart data={tempoRispostaMedio} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#2d3748" />
                   <XAxis dataKey="tempo" stroke="#cbd5e1" tick={{ fontSize: 11 }} />
-                  <YAxis unit="ms" stroke="#cbd5e1" tick={{ fontSize: 11 }}/>
+                  <YAxis unit="ms" stroke="#cbd5e1" tick={{ fontSize: 11 }} />
                   <Tooltip contentStyle={{ backgroundColor: '#1a1f2c', borderColor: '#2d3748', color: '#fff' }} />
                   <Legend />
                   <Line type="monotone" dataKey="trm" name="Tempo di Risposta (ms)" stroke="#007bff" strokeWidth={2} activeDot={{ r: 6 }} dot={false} />
@@ -311,12 +390,60 @@ function App() {
                 <LineChart data={tassoErroreMedio} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#2d3748" />
                   <XAxis dataKey="tempo" stroke="#cbd5e1" tick={{ fontSize: 11 }} />
-                  <YAxis unit="%" stroke="#cbd5e1" domain={[0, 100]} tick={{ fontSize: 13 }}/>
+                  <YAxis unit="%" stroke="#cbd5e1" domain={[0, 100]} tick={{ fontSize: 13 }} />
                   <Tooltip contentStyle={{ backgroundColor: '#1a1f2c', borderColor: '#2d3748', color: '#fff' }} />
                   <Legend />
                   <Line type="step" dataKey="tem" name="Errore medio per periodo" stroke="#ff4d4f" strokeWidth={2} dot={true} />
                 </LineChart>
               </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {dettagliModal && (
+          <div style={stiliModal.overlay} onClick={() => setDettagliModal(null)}>
+            <div style={stiliModal.modal} onClick={(e) => e.stopPropagation()}>
+              <button style={stiliModal.chiudiBtn} onClick={() => setDettagliModal(null)}>✕</button>
+              <h3 style={{ marginTop: 0 }}>Dettagli Connessione</h3>
+              <h4 style={stiliModal.sezioneTitolo('white')}>REQUEST</h4>
+              <p style={{ margin: '6px 0' }}><b>Metodo:</b> <span style={{ padding: '2px 6px', fontWeight: 'bold' }}>{dettagliModal.connection[0].req_method}</span></p>
+              <p style={{ margin: '6px 0' }}><b>Versione:</b> {dettagliModal.connection[0].req_version} | <b>URI: </b> {dettagliModal.connection[0].req_uri}</p>
+              <p style={{ margin: '6px 0' }}><b>Loggato il:</b> {dettagliModal.connection[0].created_at}</p>
+
+              <details style={{ marginTop: '10px' }}>
+                <summary style={{ cursor: 'pointer', color: '#007bff', fontWeight: 'bold' }}>
+                  Visualizza Headers di Richiesta ({dettagliModal.headers.filter(h => h.tipo_header === 'request').length})
+                </summary>
+                <div style={{ backgroundColor: '#121620', padding: '10px', borderRadius: '4px', marginTop: '8px', border: '1px solid #2d3748' }}>
+                  {dettagliModal.headers.filter(h => h.tipo_header === 'request').map((h, i) => (
+                    <div key={i} style={{ fontSize: '13px', margin: '4px 0', wordBreak: 'break-all' }}>
+                      <b style={{ color: '#cbd5e1' }}>{h.header_nome}:</b> {h.header_valore}
+                    </div>
+                  ))}
+                </div>
+              </details>
+
+              <h4 style={stiliModal.sezioneTitolo('white')}>RESPONSE</h4>
+              <p style={{ margin: '6px 0' }}>
+                <b>Status:</b>
+                <span style={stiliModal.badgeCodice(dettagliModal.connection[0].res_code)}>
+                  {dettagliModal.connection[0].res_code} {dettagliModal.connection[0].res_phrase}
+                </span>
+              </p>
+              <p style={{ margin: '6px 0' }}><b>Versione:</b> {dettagliModal.connection[0].res_version} | <b>Tempo Risposta:</b> {dettagliModal.connection[0].res_time} ms</p>
+
+              <details style={{ marginTop: '10px' }}>
+                <summary style={{ cursor: 'pointer', color: '#007bff', fontWeight: 'bold' }}>
+                  Visualizza Headers di Risposta ({dettagliModal.headers.filter(h => h.tipo_header === 'response').length})
+                </summary>
+                <div style={{ backgroundColor: '#121620', padding: '10px', borderRadius: '4px', marginTop: '8px', border: '1px solid #2d3748' }}>
+                  {dettagliModal.headers.filter(h => h.tipo_header === 'response').map((h, i) => (
+                    <div key={i} style={{ fontSize: '13px', margin: '4px 0', wordBreak: 'break-all' }}>
+                      <b style={{ color: '#cbd5e1' }}>{h.header_nome}:</b> {h.header_valore}
+                    </div>
+                  ))}
+                </div>
+              </details>
             </div>
           </div>
         )}
