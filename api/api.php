@@ -48,7 +48,7 @@ try {
             INNER JOIN header ON connection_header.header_id = header.id 
             WHERE header.name = 'X-Forwarded-For' {$fillter} 
 			ORDER BY connection.created_at DESC
-            LIMIT 50";
+            ";
     $stmt = $conn->prepare($query);
     $stmt->execute();
 
