@@ -152,49 +152,6 @@ void parse(char* buff, int buff_len, int mod, struct timer *t, struct http_sessi
     if(mod == 0){t->start = clock();}
 }
 
-/*
-void forward(int src, int dest, int mod, struct timer *t, struct http_session *hs) {
-    char buffer[8192];  // limite apache per header circa 8kb
-    char buffer_cpy[8192];
-    int bytes_read, bytes_written;
-
-    bytes_read = read(src, buffer, sizeof(buffer) - 1);
-    if (bytes_read <= 0) return;
-
-    memcpy(buffer_cpy, buffer, bytes_read);
-    buffer_cpy[bytes_read] = '\0';
-    parse(buffer_cpy, bytes_read, mod, t, hs);
-
-
-// Inviamo il primo blocco a destinazione
-    bytes_written = write(dest, buffer, bytes_read);
-    if (bytes_written <= 0) return;
-
-    // Se il pacchetto era parziale o è un contenuto lungo (es. codice 206 o 200 con immagini),
-    // continuiamo a inoltrare i dati finché il mittente non smette di mandarne o chiude il canale.
-    // Usiamo un controllo non bloccante basato sulla dimensione letta
-    while (bytes_read == sizeof(buffer) - 1) {
-        bytes_read = read(src, buffer, sizeof(buffer) - 1);
-        if (bytes_read <= 0) break;
-
-        bytes_written = write(dest, buffer, bytes_read);
-        if (bytes_written <= 0) break;
-    }
-
-    write(dest, buffer, bytes_read);
-
-    while (bytes_read >= sizeof(buffer)-1 && ((bytes_read = read(src, buffer, sizeof(buffer))) > 0)) {  //invia il resto del pacchetto se c'è
-        write(dest, buffer, bytes_read);
-        if (bytes_written < 0) {
-            break;
-        }
-    }
-    //fine risposta server
-    t->stop = clock();
-    hs->response_time = ((double) (t->stop - t->start) * 1000.0) / CLOCKS_PER_SEC;
-}
-*/
-
 void forward(int src, int dest, int mod, struct timer *t, struct http_session *hs) {
     char buffer[8192];
     char buffer_cpy[8192];

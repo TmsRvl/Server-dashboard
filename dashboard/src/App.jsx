@@ -66,7 +66,8 @@ function App() {
     },
     { label: 'IP', accessor: 'ip', minWidth: 120, width: "1.2fr", type: "string", filterable: false, align: "center" },
     { label: 'Tempo (ms)', accessor: 'tempo', minWidth: 100, width: "1.0fr", type: "number", filterable: true, align: "center" },
-    {label: '', accessor: 'id', minWidth: 80, width: "0.7fr", filterable: false, align: "center",
+    {
+      label: '', accessor: 'id', minWidth: 80, width: "0.7fr", filterable: false, align: "center",
       cellRenderer: ({ row }) => {
         return (
           <button
@@ -105,16 +106,6 @@ function App() {
       .then(res => res.json())
       .then(d => setDatiTraffico(d.data))
       .catch(err => console.error("Errore Traffico:", err));
-
-
-    fetch(`http://192.168.1.100:5554/trm.php` + (query !== '' ? '?' + query : ''))
-      .then(res => res.json())
-      .then(d => setTempoRispostaMedio(d.data))
-      .catch(err => console.error("Errore TRM:", err));
-    fetch(`http://192.168.1.100:5554/tem.php` + (query !== '' ? '?' + query : ''))
-      .then(res => res.json())
-      .then(d => setTassoErroreMedio(d.data))
-      .catch(err => console.error("Errore TEM:", err));
   };
 
   useEffect(() => {
@@ -125,6 +116,21 @@ function App() {
 
     return () => clearInterval(intervalId);
   }, [query]);
+
+  const trm = () => {
+    fetch(`http://192.168.1.100:5554/trm.php` + (query !== '' ? '?' + query : ''))
+      .then(res => res.json())
+      .then(d => setTempoRispostaMedio(d.data))
+      .catch(err => console.error("Errore TRM:", err));
+  }; 
+
+  const tem = () => {
+    fetch(`http://192.168.1.100:5554/tem.php` + (query !== '' ? '?' + query : ''))
+      .then(res => res.json())
+      .then(d => setTassoErroreMedio(d.data))
+      .catch(err => console.error("Errore TEM:", err));
+  };
+
 
   const mostraDettagli = (id) => {
     fetch(`http://192.168.1.100:5554/info.php?id=${id}`)
@@ -290,11 +296,14 @@ function App() {
         <button style={stileBottoneMenu(paginaAttiva === 'tabella')} onClick={() => setPaginaAttiva('tabella')}>
           Tabella Traffico
         </button>
-        <button style={stileBottoneMenu(paginaAttiva === 'tempo')} onClick={() => setPaginaAttiva('tempo')}>
+        <button style={stileBottoneMenu(paginaAttiva === 'tempo')} onClick={() => {setPaginaAttiva('tempo'); trm();}}>
           Tempo Risposta
         </button>
-        <button style={stileBottoneMenu(paginaAttiva === 'errori')} onClick={() => setPaginaAttiva('errori')}>
+        <button style={stileBottoneMenu(paginaAttiva === 'errori')} onClick={() => {setPaginaAttiva('errori'); tem();}}>
           Tasso Errore
+        </button>
+        <button style={stileBottoneMenu(paginaAttiva === 'blocco')} onClick={() => setPaginaAttiva('blocco')}>
+          Blacklists
         </button>
       </aside>
 
@@ -364,42 +373,76 @@ function App() {
 
         {/* PAGINA 2: GRAFICO TEMPO DI RISPOSTA */}
         {paginaAttiva === 'tempo' && (
-          <div style={{ backgroundColor: '#1a1f2c', padding: '20px', borderRadius: '6px', border: '1px solid #2d3748' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Andamento dei Tempi di Risposta</h3>
-            <div style={{ width: '100%', height: 400 }}>
-              <ResponsiveContainer>
-                <LineChart data={tempoRispostaMedio} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2d3748" />
-                  <XAxis dataKey="tempo" stroke="#cbd5e1" tick={{ fontSize: 11 }} />
-                  <YAxis unit="ms" stroke="#cbd5e1" tick={{ fontSize: 11 }} />
-                  <Tooltip contentStyle={{ backgroundColor: '#1a1f2c', borderColor: '#2d3748', color: '#fff' }} />
-                  <Legend />
-                  <Line type="monotone" dataKey="trm" name="Tempo di Risposta (ms)" stroke="#007bff" strokeWidth={2} activeDot={{ r: 6 }} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '80vh', width: '100%' }}>
+            <div style={{ backgroundColor: '#1a1f2c', padding: '20px', borderRadius: '6px', border: '1px solid #2d3748' }}>
+              <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Andamento dei Tempi di Risposta</h3>
+              <div style={{ width: '100%', height: 400 }}>
+                <ResponsiveContainer>
+                  <LineChart data={tempoRispostaMedio} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#2d3748" />
+                    <XAxis dataKey="tempo" stroke="#cbd5e1" tick={{ fontSize: 11 }} />
+                    <YAxis unit="ms" stroke="#cbd5e1" tick={{ fontSize: 11 }} />
+                    <Tooltip contentStyle={{ backgroundColor: '#1a1f2c', borderColor: '#2d3748', color: '#fff' }} />
+                    <Legend />
+                    <Line type="monotone" dataKey="trm" name="Tempo di Risposta (ms)" stroke="#007bff" strokeWidth={2} activeDot={{ r: 6 }} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
         )}
 
         {/* PAGINA 3: GRAFICO TASSO ERRORE */}
         {paginaAttiva === 'errori' && (
-          <div style={{ backgroundColor: '#1a1f2c', padding: '20px', borderRadius: '6px', border: '1px solid #2d3748' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Distribuzione Tasso Errore Medio </h3>
-            <div style={{ width: '100%', height: 400 }}>
-              <ResponsiveContainer>
-                <LineChart data={tassoErroreMedio} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2d3748" />
-                  <XAxis dataKey="tempo" stroke="#cbd5e1" tick={{ fontSize: 11 }} />
-                  <YAxis unit="%" stroke="#cbd5e1" domain={[0, 100]} tick={{ fontSize: 13 }} />
-                  <Tooltip contentStyle={{ backgroundColor: '#1a1f2c', borderColor: '#2d3748', color: '#fff' }} />
-                  <Legend />
-                  <Line type="step" dataKey="tem" name="Errore medio per periodo" stroke="#ff4d4f" strokeWidth={2} dot={true} />
-                </LineChart>
-              </ResponsiveContainer>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '80vh', width: '100%' }}>
+            <div style={{ backgroundColor: '#1a1f2c', padding: '20px', borderRadius: '6px', border: '1px solid #2d3748' }}>
+              <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Distribuzione Tasso Errore Medio </h3>
+              <div style={{ width: '100%', height: 400 }}>
+                <ResponsiveContainer>
+                  <LineChart data={tassoErroreMedio} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#2d3748" />
+                    <XAxis dataKey="tempo" stroke="#cbd5e1" tick={{ fontSize: 11 }} />
+                    <YAxis unit="%" stroke="#cbd5e1" domain={[0, 100]} tick={{ fontSize: 13 }} />
+                    <Tooltip contentStyle={{ backgroundColor: '#1a1f2c', borderColor: '#2d3748', color: '#fff' }} />
+                    <Legend />
+                    <Line type="step" dataKey="tem" name="Errore medio per periodo" stroke="#ff4d4f" strokeWidth={2} dot={true} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
         )}
 
+        {/* PAGINA 4: BLOCCO INDIRIZZI IP E URI */}
+        {paginaAttiva === 'blocco' && (
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '80vh', width: '100%' }}>
+            <div style={{ boxSizing: 'border-box', width: '100%', maxWidth: '1000px', margin: '0 auto', backgroundColor: '#1a1f2c', padding: '30px', borderRadius: '8px', border: '1px solid #2d3748', fontFamily: 'sans-serif' }}>
+
+              <div style={{ marginBottom: '40px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', gap: '20px' }}>
+                  <input type="text" placeholder="IP da bloccare..." style={{ flexGrow: 1, height: '45px', padding: '0 15px', fontSize: '15px', color: '#ffffff', backgroundColor: '#11151f', border: '1px solid #2d3748', borderRadius: '6px', outline: 'none' }} />
+                  <button style={{ width: '140px', height: '45px', fontSize: '14px', fontWeight: '600', letterSpacing: '0.5px', color: 'white', backgroundColor: '#007bff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Blocca</button>
+                </div>
+                <div style={{ width: '100%' }}>
+                  <textarea readOnly placeholder="IP bloccati..." style={{ boxSizing: 'border-box', width: '100%', height: '220px', padding: '15px', color: '#94a3b8', backgroundColor: '#11151f', border: '1px solid #2d3748', borderRadius: '6px', resize: 'none', outline: 'none', fontFamily: 'monospace', fontSize: '13px', overflowY: 'scroll' }}></textarea>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', gap: '20px' }}>
+                  <input type="text" placeholder="/URI da bloccare..." style={{ flexGrow: 1, height: '45px', padding: '0 15px', fontSize: '15px', color: '#ffffff', backgroundColor: '#11151f', border: '1px solid #2d3748', borderRadius: '6px', outline: 'none' }} />
+                  <button style={{ width: '140px', height: '45px', fontSize: '14px', fontWeight: '600', letterSpacing: '0.5px', color: 'white', backgroundColor: '#007bff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Blocca</button>
+                </div>
+                <div style={{ width: '100%' }}>
+                  <textarea readOnly placeholder="URI bloccati..." style={{ boxSizing: 'border-box', width: '100%', height: '220px', padding: '15px', color: '#94a3b8', backgroundColor: '#11151f', border: '1px solid #2d3748', borderRadius: '6px', resize: 'none', outline: 'none', fontFamily: 'monospace', fontSize: '13px', overflowY: 'scroll' }}></textarea>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* FINESTRA CHE MOSTRA I DETTAGLI DI UNA CERTA RIGA*/}
         {dettagliModal && (
           <div style={stiliModal.overlay} onClick={() => setDettagliModal(null)}>
             <div style={stiliModal.modal} onClick={(e) => e.stopPropagation()}>
@@ -414,7 +457,7 @@ function App() {
                 <summary style={{ cursor: 'pointer', color: '#007bff', fontWeight: 'bold' }}>
                   Visualizza Headers di Richiesta ({dettagliModal.headers.filter(h => h.tipo_header === 'request').length})
                 </summary>
-                <div style={{ backgroundColor: '#121620', padding: '10px', borderRadius: '4px', marginTop: '8px', border: '1px solid #2d3748' }}>
+                <div style={{ backgroundColor: '#121620', padding: '10px', borderRadius: '4px', marginTop: '8px', border: '1px solid #2d3748', textAlign: 'left'}}>
                   {dettagliModal.headers.filter(h => h.tipo_header === 'request').map((h, i) => (
                     <div key={i} style={{ fontSize: '13px', margin: '4px 0', wordBreak: 'break-all' }}>
                       <b style={{ color: '#cbd5e1' }}>{h.header_nome}:</b> {h.header_valore}
@@ -436,7 +479,7 @@ function App() {
                 <summary style={{ cursor: 'pointer', color: '#007bff', fontWeight: 'bold' }}>
                   Visualizza Headers di Risposta ({dettagliModal.headers.filter(h => h.tipo_header === 'response').length})
                 </summary>
-                <div style={{ backgroundColor: '#121620', padding: '10px', borderRadius: '4px', marginTop: '8px', border: '1px solid #2d3748' }}>
+                <div style={{ backgroundColor: '#121620', padding: '10px', borderRadius: '4px', marginTop: '8px', border: '1px solid #2d3748', textAlign: 'left'}}>
                   {dettagliModal.headers.filter(h => h.tipo_header === 'response').map((h, i) => (
                     <div key={i} style={{ fontSize: '13px', margin: '4px 0', wordBreak: 'break-all' }}>
                       <b style={{ color: '#cbd5e1' }}>{h.header_nome}:</b> {h.header_valore}
