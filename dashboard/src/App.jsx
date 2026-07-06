@@ -254,9 +254,11 @@ function App() {
   const bloccaSblocca = async (tipo, azione, valore) => {
     if (tipo === 'ip'){
       const ipv4Regex = /^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9][0-9]|[0-9])(.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9][0-9]|[0-9])){3}$/;
-      if(!ipv4Regex.test(valore)) alert("IP non valido");
-      setInputIp('');
-      return;
+      if(!ipv4Regex.test(valore)) {
+        setInputIp(''); 
+        alert("IP non valido");
+        return;
+      }
     }
     if (!valore) {
       alert(`Inserisci un valore valido per il campo ${tipo.toUpperCase()}`);

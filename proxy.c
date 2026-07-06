@@ -239,7 +239,7 @@ int isBlocked(struct http_session *hs) {
         if (f_ip != NULL) {
             while (fgets(line, sizeof(line), f_ip)) {
                 // Rimuoviamo il carattere di \n
-                char* a = strstr(line, '\n');
+                char* a = strstr(line, "\n");
                 *a = 0; 
                 
                 if (strcmp(line, ip_to_check) == 0) {
@@ -254,7 +254,7 @@ int isBlocked(struct http_session *hs) {
     FILE *f_uri = fopen("./data/uriBlocked.txt", "r");
     if (f_uri != NULL) {
         while (fgets(line, sizeof(line), f_uri)) {
-            char* a = strstr(line, '\n');
+            char* a = strstr(line, "\n");
             *a = 0; 
             
             if (strcmp(line, hs->uri) == 0) {
