@@ -12,7 +12,7 @@ import {
   ResponsiveContainer
 } from 'recharts';
 
-const INTERVALLO_AGGIORNAMENTO = 5000;
+const INTERVALLO_AGGIORNAMENTO = 5000; //in ms
 const OGGI = new Date().toISOString().split('T')[0];
 const PERIODO = 20;
 
@@ -40,6 +40,11 @@ function App() {
   const [filtroOraFine, setFiltroOraFine] = useState('');
   const [filtroMetodo, setFiltroMetodo] = useState('ALL');
   const [maxDataFine, setMaxDataFine] = useState(OGGI);
+
+  const [inputIp, setInputIp] = useState('');
+  const [inputUri, setInputUri] = useState('');
+  const [listaIp, setListaIp] = useState([]);
+  const [listaUri, setListaUri] = useState([]);
 
 
   const colonne = [
@@ -236,6 +241,53 @@ function App() {
     setQuery(buff);
   };
 
+  const caricaLista = (tipo) => {
+    fetch(`http://192.168.1.100:5554/block.php?tipo=${tipo}&mostra=1`)
+      .then(res => res.json())
+      .then(d => {
+        if(tipo === 'ip') setListaIp(d.data);
+        if(tipo === 'uri') setListaUri(d.data);
+      })
+      .catch(err => console.error(`Errore nel caricamento dei dati (${tipo}):`, err));
+  };
+
+  const bloccaSblocca = async (tipo, azione, valore) => {
+    if (tipo === 'ip'){
+      const ipv4Regex = /^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9][0-9]|[0-9])(.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9][0-9]|[0-9])){3}$/;
+      if(!ipv4Regex.test(valore)) alert("IP non valido");
+      setInputIp('');
+      return;
+    }
+    if (!valore) {
+      alert(`Inserisci un valore valido per il campo ${tipo.toUpperCase()}`);
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://192.168.1.100:5554/block.php?tipo=${tipo}&blocca=${azione}&data=${valore}`);
+      const json = await response.json();
+
+      if (tipo === 'ip') setInputIp('');
+      if (tipo === 'uri') setInputUri('');
+      
+      if (response.status === 409) {
+        alert(`${tipo.toUpperCase()} già esistente!`);
+        return; 
+      }
+      if (response.status === 404) {
+        alert(`${tipo.toUpperCase()} non trovato!`);
+        return;
+      }
+      if (response.ok && json.status === 'success') {
+        caricaLista(tipo);
+      } 
+    
+    } catch (error) {
+      alert("Si è verificato un errore di rete durante la richiesta.");
+      console.error(error);
+    }
+  };
+
   // Funzione inline per gestire lo stile dei pulsanti del menu
   const stileBottoneMenu = (attivo) => ({
     width: '100%',
@@ -302,7 +354,7 @@ function App() {
         <button style={stileBottoneMenu(paginaAttiva === 'errori')} onClick={() => {setPaginaAttiva('errori'); tem();}}>
           Tasso Errore
         </button>
-        <button style={stileBottoneMenu(paginaAttiva === 'blocco')} onClick={() => setPaginaAttiva('blocco')}>
+        <button style={stileBottoneMenu(paginaAttiva === 'blocco')} onClick={() => {setPaginaAttiva('blocco'), caricaLista('ip'), caricaLista('uri')}}>
           Blacklists
         </button>
       </aside>
@@ -315,7 +367,7 @@ function App() {
         boxSizing: 'border-box'
       }}>
 
-        {/* HEADER STATISTICHE SEMPRE VISIBILE */}
+        {/* HEADER */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
           <h2 style={{ margin: 0 }}>Monitoraggio Traffico di Rete</h2>
           <div style={{ display: 'flex', gap: '40px', fontSize: '15px' }}>
@@ -355,6 +407,7 @@ function App() {
                     <option value="ALL">Tutti</option>
                     <option value="GET">GET</option>
                     <option value="POST">POST</option>
+                    <option value="POST">HEAD</option>
                     <option value="PUT">PUT</option>
                     <option value="DELETE">DELETE</option>
                   </select>
@@ -420,21 +473,23 @@ function App() {
 
               <div style={{ marginBottom: '40px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', gap: '20px' }}>
-                  <input type="text" placeholder="IP da bloccare..." style={{ flexGrow: 1, height: '45px', padding: '0 15px', fontSize: '15px', color: '#ffffff', backgroundColor: '#11151f', border: '1px solid #2d3748', borderRadius: '6px', outline: 'none' }} />
-                  <button style={{ width: '140px', height: '45px', fontSize: '14px', fontWeight: '600', letterSpacing: '0.5px', color: 'white', backgroundColor: '#007bff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Blocca</button>
+                  <input type="text" placeholder="IP da bloccare..." value={inputIp} onChange={(e) => setInputIp(e.target.value)} style={{ flexGrow: 1, height: '45px', padding: '0 15px', fontSize: '15px', color: '#ffffff', backgroundColor: '#11151f', border: '1px solid #2d3748', borderRadius: '6px', outline: 'none' }} />
+                  <button onClick={() => bloccaSblocca('ip', '1', inputIp)} style={{ width: '70px', height: '45px', fontSize: '14px', fontWeight: '600', letterSpacing: '0.5px', color: 'white', backgroundColor: '#007bff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Blocca</button>
+                  <button onClick={() => bloccaSblocca('ip', '0', inputIp)} style={{ width: '70px', height: '45px', fontSize: '14px', fontWeight: '600', letterSpacing: '0.5px', color: 'white', backgroundColor: '#007bff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Sblocca</button>
                 </div>
                 <div style={{ width: '100%' }}>
-                  <textarea readOnly placeholder="IP bloccati..." style={{ boxSizing: 'border-box', width: '100%', height: '220px', padding: '15px', color: '#94a3b8', backgroundColor: '#11151f', border: '1px solid #2d3748', borderRadius: '6px', resize: 'none', outline: 'none', fontFamily: 'monospace', fontSize: '13px', overflowY: 'scroll' }}></textarea>
+                  <textarea readOnly placeholder="IP bloccati..." value={listaIp.join('\n')} style={{ boxSizing: 'border-box', width: '100%', height: '220px', padding: '15px', color: '#94a3b8', backgroundColor: '#11151f', border: '1px solid #2d3748', borderRadius: '6px', resize: 'none', outline: 'none', fontFamily: 'monospace', fontSize: '13px', overflowY: 'scroll' }}></textarea>
                 </div>
               </div>
 
               <div style={{ marginBottom: '0' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', gap: '20px' }}>
-                  <input type="text" placeholder="/URI da bloccare..." style={{ flexGrow: 1, height: '45px', padding: '0 15px', fontSize: '15px', color: '#ffffff', backgroundColor: '#11151f', border: '1px solid #2d3748', borderRadius: '6px', outline: 'none' }} />
-                  <button style={{ width: '140px', height: '45px', fontSize: '14px', fontWeight: '600', letterSpacing: '0.5px', color: 'white', backgroundColor: '#007bff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Blocca</button>
+                  <input type="text" placeholder="/URI da bloccare..." value={inputUri} onChange={(e) => setInputUri(e.target.value)} style={{ flexGrow: 1, height: '45px', padding: '0 15px', fontSize: '15px', color: '#ffffff', backgroundColor: '#11151f', border: '1px solid #2d3748', borderRadius: '6px', outline: 'none' }} />
+                  <button onClick={() => bloccaSblocca('uri', '1', inputUri)} style={{ width: '70px', height: '45px', fontSize: '14px', fontWeight: '600', letterSpacing: '0.5px', color: 'white', backgroundColor: '#007bff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Blocca</button>
+                  <button onClick={() => bloccaSblocca('uri', '0', inputUri)} style={{ width: '70px', height: '45px', fontSize: '14px', fontWeight: '600', letterSpacing: '0.5px', color: 'white', backgroundColor: '#007bff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Sblocca</button>
                 </div>
                 <div style={{ width: '100%' }}>
-                  <textarea readOnly placeholder="URI bloccati..." style={{ boxSizing: 'border-box', width: '100%', height: '220px', padding: '15px', color: '#94a3b8', backgroundColor: '#11151f', border: '1px solid #2d3748', borderRadius: '6px', resize: 'none', outline: 'none', fontFamily: 'monospace', fontSize: '13px', overflowY: 'scroll' }}></textarea>
+                  <textarea readOnly placeholder="URI bloccati..." value={listaUri.join('\n')} style={{ boxSizing: 'border-box', width: '100%', height: '220px', padding: '15px', color: '#94a3b8', backgroundColor: '#11151f', border: '1px solid #2d3748', borderRadius: '6px', resize: 'none', outline: 'none', fontFamily: 'monospace', fontSize: '13px', overflowY: 'scroll' }}></textarea>
                 </div>
               </div>
 

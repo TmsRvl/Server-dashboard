@@ -13,8 +13,7 @@ TODO:
 
 - (X) aggiungere il dettaglio per ogni riga, rendere ogni riga espandibile per consultare i dettagli richiesta-risposta 
 
-- ( ) introdurre la blacklist degli ip e degli URI (modificando anche il backend e il proxy)
-- ( ) capire se fare delle sezioni dedicate nel front-end apposta per questo
+- (X) introdurre la blacklist degli ip e degli URI (modificando anche il backend e il proxy)
 
 - ( ) migliorare il proxy in modo tale che sia in grado di gestire qualsiasi tipo di traffico (200, 206, chunked)
 - ( ) formattare tutti i codici in inglese 

@@ -219,6 +219,55 @@ void forward(int src, int dest, int mod, struct timer *t, struct http_session *h
     hs->response_time = ((double) (t->stop - t->start) * 1000.0) / CLOCKS_PER_SEC;
 }
 
+int isBlocked(struct http_session *hs) {
+    int block1 = 0;
+    int block2 = 0;
+    char line[2000];
+    char *ip_to_check = NULL;
+
+    for (int i = 0; i < hs->req_h_count; i++) {
+        if (strcmp(hs->req_headers[i].n, "X-Forwarded-For") == 0) {
+            ip_to_check = hs->req_headers[i].v;
+            break;
+        }
+    }
+
+    ip_to_check++;
+
+    if (ip_to_check != NULL) {
+        FILE *f_ip = fopen("./data/ipBlocked.txt", "r");
+        if (f_ip != NULL) {
+            while (fgets(line, sizeof(line), f_ip)) {
+                // Rimuoviamo il carattere di \n
+                char* a = strstr(line, '\n');
+                *a = 0; 
+                
+                if (strcmp(line, ip_to_check) == 0) {
+                    block1 = 1;
+                    break;
+                }
+            }
+            fclose(f_ip);
+        }
+    }
+
+    FILE *f_uri = fopen("./data/uriBlocked.txt", "r");
+    if (f_uri != NULL) {
+        while (fgets(line, sizeof(line), f_uri)) {
+            char* a = strstr(line, '\n');
+            *a = 0; 
+            
+            if (strcmp(line, hs->uri) == 0) {
+                block2 = 1;
+                break;
+            }
+        }
+        fclose(f_uri);
+    }
+
+    return block1 || block2;
+}
+
 int main() {
     int proxy_fd, client_fd, server_fd;
     struct sockaddr_in proxy, server;
@@ -254,7 +303,21 @@ int main() {
                 t.start = 0;
                 t.stop = 0;
                 forward(client_fd, server_fd, 0, &t, &session);
-                forward(server_fd, client_fd, 1, &t, &session);
+                //controllo se l'ip o l'uri é bloccato e rispondo io al posto del server.
+                if (!isBlocked(&session)) {
+                    forward(server_fd, client_fd, 1, &t, &session);
+                }else{
+                    //rispondo a client_fd con un codice 403.
+                    const char *response = "HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n<html><body><h1>403 Forbidden</h1></body></html>";
+                    session.res_h_count = 0;
+                    sprintf(session.res_ver, "HTTP/1.1");
+                    sprintf(session.phrase, "Forbidden");
+                    session.status_code = 403;
+                    session.res_headers;
+                    write(client_fd, response, strlen(response));
+                    t.stop = clock();
+                    session.response_time = ((double) (t.stop - t.start) * 1000.0) / CLOCKS_PER_SEC;
+                }
 
                 save_session(&session);
             }
