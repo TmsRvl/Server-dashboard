@@ -350,10 +350,10 @@ function App() {
         <button style={stileBottoneMenu(paginaAttiva === 'tabella')} onClick={() => setPaginaAttiva('tabella')}>
           Tabella Traffico
         </button>
-        <button style={stileBottoneMenu(paginaAttiva === 'tempo')} onClick={() => {setPaginaAttiva('tempo'); trm();}}>
+        <button style={stileBottoneMenu(paginaAttiva === 'tempo')} onClick={() => {setTimeout(() => setPaginaAttiva('tempo'), 200); trm();}}>
           Tempo Risposta
         </button>
-        <button style={stileBottoneMenu(paginaAttiva === 'errori')} onClick={() => {setPaginaAttiva('errori'); tem();}}>
+        <button style={stileBottoneMenu(paginaAttiva === 'errori')} onClick={() => {setTimeout(() => setPaginaAttiva('errori'), 200); tem();}}>
           Tasso Errore
         </button>
         <button style={stileBottoneMenu(paginaAttiva === 'blocco')} onClick={() => {setPaginaAttiva('blocco'), caricaLista('ip'), caricaLista('uri')}}>
