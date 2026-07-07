@@ -395,11 +395,11 @@ function App() {
                   <>
                     <div>
                       <label style={{ display: 'block', fontSize: '12px', marginBottom: '5px' }}>Da Ora:</label>
-                      <input type="time" value={filtroOraInizio} onChange={e => handleOraInizioChange(e.target.value)} style={{ background: '#121620', color: '#fff', border: '1px solid #2d3748', padding: '4px' }} />
+                      <input type="time" step="900" value={filtroOraInizio} onChange={e => handleOraInizioChange(e.target.value)} style={{ background: '#121620', color: '#fff', border: '1px solid #2d3748', padding: '4px' }} />
                     </div>
                     <div>
                       <label style={{ display: 'block', fontSize: '12px', marginBottom: '5px' }}>A Ora:</label>
-                      <input type="time" value={filtroOraFine} min={filtroOraInizio} disabled={!filtroOraInizio} onChange={e => handleOraFineChange(e.target.value)} style={{ background: '#121620', color: '#fff', border: '1px solid #2d3748', padding: '4px' }} />
+                      <input type="time" step="900" value={filtroOraFine} min={filtroOraInizio} disabled={!filtroOraInizio} onChange={e => handleOraFineChange(e.target.value)} style={{ background: '#121620', color: '#fff', border: '1px solid #2d3748', padding: '4px' }} />
                     </div>
                   </>
                 )}
