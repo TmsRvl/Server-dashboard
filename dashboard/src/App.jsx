@@ -127,7 +127,7 @@ function App() {
       .then(res => res.json())
       .then(d => setTempoRispostaMedio(d.data))
       .catch(err => console.error("Errore TRM:", err));
-  }; 
+  };
 
   const tem = () => {
     fetch(`http://192.168.1.100:5554/tem.php` + (query !== '' ? '?' + query : ''))
@@ -175,19 +175,20 @@ function App() {
   };
 
   const handleOraFineChange = (valore) => {
-    if (filtroOraInizio && valore <= filtroOraInizio) {
-      const aggiungiUnMinuto = (orarioStringa) => {
-        if (!orarioStringa) return '';
-        const [ore, minuti] = orarioStringa.split(':').map(Number);
-        let nuoviMinuti = minuti + 15;
-        let nuoveOre = ore;
-        if (nuoviMinuti >= 60) {
-          nuoviMinuti = 0;
-          nuoveOre = (ore + 1) % 24;
-        }
-        return `${nuoveOre.toString().padStart(2, '0')}:${nuoviMinuti.toString().padStart(2, '0')}`;
-      };
-      setFiltroOraFine(aggiungiUnMinuto(filtroOraInizio));
+    const calcolaMinimoConsentito = (orarioStringa) => {
+      if (!orarioStringa) return '';
+      const [ore, minuti] = orarioStringa.split(':').map(Number);
+      let nuoviMinuti = minuti + 15;
+      let nuoveOre = ore;
+      if (nuoviMinuti >= 60) {
+        nuoviMinuti = nuoviMinuti % 60;
+        nuoveOre = (ore + 1) % 24;
+      }
+      return `${nuoveOre.toString().padStart(2, '0')}:${nuoviMinuti.toString().padStart(2, '0')}`;
+    };
+    const oraMinimaConcessa = calcolaMinimoConsentito(filtroOraInizio);
+    if (filtroOraInizio && valore < oraMinimaConcessa) {
+      setFiltroOraFine(oraMinimaConcessa);
     } else {
       setFiltroOraFine(valore);
     }
@@ -245,17 +246,17 @@ function App() {
     fetch(`http://192.168.1.100:5554/block.php?tipo=${tipo}&mostra=1`)
       .then(res => res.json())
       .then(d => {
-        if(tipo === 'ip') setListaIp(d.data);
-        if(tipo === 'uri') setListaUri(d.data);
+        if (tipo === 'ip') setListaIp(d.data);
+        if (tipo === 'uri') setListaUri(d.data);
       })
       .catch(err => console.error(`Errore nel caricamento dei dati (${tipo}):`, err));
   };
 
   const bloccaSblocca = async (tipo, azione, valore) => {
-    if (tipo === 'ip'){
+    if (tipo === 'ip') {
       const ipv4Regex = /^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9][0-9]|[0-9])(.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9][0-9]|[0-9])){3}$/;
-      if(!ipv4Regex.test(valore)) {
-        setInputIp(''); 
+      if (!ipv4Regex.test(valore)) {
+        setInputIp('');
         alert("IP non valido");
         return;
       }
@@ -271,10 +272,10 @@ function App() {
 
       if (tipo === 'ip') setInputIp('');
       if (tipo === 'uri') setInputUri('');
-      
+
       if (response.status === 409) {
         alert(`${tipo.toUpperCase()} già esistente!`);
-        return; 
+        return;
       }
       if (response.status === 404) {
         alert(`${tipo.toUpperCase()} non trovato!`);
@@ -282,8 +283,8 @@ function App() {
       }
       if (response.ok && json.status === 'success') {
         caricaLista(tipo);
-      } 
-    
+      }
+
     } catch (error) {
       alert("Si è verificato un errore di rete durante la richiesta.");
       console.error(error);
@@ -350,13 +351,13 @@ function App() {
         <button style={stileBottoneMenu(paginaAttiva === 'tabella')} onClick={() => setPaginaAttiva('tabella')}>
           Tabella Traffico
         </button>
-        <button style={stileBottoneMenu(paginaAttiva === 'tempo')} onClick={() => {setTimeout(() => setPaginaAttiva('tempo'), 200); trm();}}>
+        <button style={stileBottoneMenu(paginaAttiva === 'tempo')} onClick={() => { setTimeout(() => setPaginaAttiva('tempo'), 200); trm(); }}>
           Tempo Risposta
         </button>
-        <button style={stileBottoneMenu(paginaAttiva === 'errori')} onClick={() => {setTimeout(() => setPaginaAttiva('errori'), 200); tem();}}>
+        <button style={stileBottoneMenu(paginaAttiva === 'errori')} onClick={() => { setTimeout(() => setPaginaAttiva('errori'), 200); tem(); }}>
           Tasso Errore
         </button>
-        <button style={stileBottoneMenu(paginaAttiva === 'blocco')} onClick={() => {setPaginaAttiva('blocco'), caricaLista('ip'), caricaLista('uri')}}>
+        <button style={stileBottoneMenu(paginaAttiva === 'blocco')} onClick={() => { setPaginaAttiva('blocco'), caricaLista('ip'), caricaLista('uri') }}>
           Blacklists
         </button>
       </aside>
@@ -398,7 +399,12 @@ function App() {
                       <input type="time" step="900" value={filtroOraInizio} onChange={e => handleOraInizioChange(e.target.value)} style={{ background: '#121620', color: '#fff', border: '1px solid #2d3748', padding: '4px' }} />
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontSize: '12px', marginBottom: '5px' }}>A Ora:</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '7px' , marginLeft: "10px"}}>
+                        <label style={{ display: 'block', fontSize: '12px', marginBottom: '5px' }}>A Ora:</label>
+                        <span title="L'ora finale deve differire di almeno 15 min da quella iniziale" style={{display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '14px', height: '14px', borderRadius: '50%', backgroundColor: '#007bff', color: '#ffffff', fontSize: '11px', cursor: 'help', marginBottom: '5px'}}>
+                        i
+                        </span>
+                      </div>
                       <input type="time" step="900" value={filtroOraFine} min={filtroOraInizio} disabled={!filtroOraInizio} onChange={e => handleOraFineChange(e.target.value)} style={{ background: '#121620', color: '#fff', border: '1px solid #2d3748', padding: '4px' }} />
                     </div>
                   </>
@@ -514,7 +520,7 @@ function App() {
                 <summary style={{ cursor: 'pointer', color: '#007bff', fontWeight: 'bold' }}>
                   Visualizza Headers di Richiesta ({dettagliModal.headers.filter(h => h.tipo_header === 'request').length})
                 </summary>
-                <div style={{ backgroundColor: '#121620', padding: '10px', borderRadius: '4px', marginTop: '8px', border: '1px solid #2d3748', textAlign: 'left'}}>
+                <div style={{ backgroundColor: '#121620', padding: '10px', borderRadius: '4px', marginTop: '8px', border: '1px solid #2d3748', textAlign: 'left' }}>
                   {dettagliModal.headers.filter(h => h.tipo_header === 'request').map((h, i) => (
                     <div key={i} style={{ fontSize: '13px', margin: '4px 0', wordBreak: 'break-all' }}>
                       <b style={{ color: '#cbd5e1' }}>{h.header_nome}:</b> {h.header_valore}
@@ -536,7 +542,7 @@ function App() {
                 <summary style={{ cursor: 'pointer', color: '#007bff', fontWeight: 'bold' }}>
                   Visualizza Headers di Risposta ({dettagliModal.headers.filter(h => h.tipo_header === 'response').length})
                 </summary>
-                <div style={{ backgroundColor: '#121620', padding: '10px', borderRadius: '4px', marginTop: '8px', border: '1px solid #2d3748', textAlign: 'left'}}>
+                <div style={{ backgroundColor: '#121620', padding: '10px', borderRadius: '4px', marginTop: '8px', border: '1px solid #2d3748', textAlign: 'left' }}>
                   {dettagliModal.headers.filter(h => h.tipo_header === 'response').map((h, i) => (
                     <div key={i} style={{ fontSize: '13px', margin: '4px 0', wordBreak: 'break-all' }}>
                       <b style={{ color: '#cbd5e1' }}>{h.header_nome}:</b> {h.header_valore}
