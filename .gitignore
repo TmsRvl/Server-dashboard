@@ -1,6 +1,7 @@
 # Dir
 data/
 log/
+proxy
 
 # Logs
 logs
