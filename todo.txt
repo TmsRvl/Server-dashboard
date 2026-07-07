@@ -15,5 +15,6 @@ TODO:
 
 - (X) introdurre la blacklist degli ip e degli URI (modificando anche il backend e il proxy)
 
-- ( ) migliorare il proxy in modo tale che sia in grado di gestire qualsiasi tipo di traffico (200, 206, chunked)
-- ( ) formattare tutti i codici in inglese 
+- (X) testare il proxy con qualsiasi tipo di traffico (200, 206, chunked)
+- ( ) separare il frontend in mmoduli e formattare tutti i codici in inglese 
+
