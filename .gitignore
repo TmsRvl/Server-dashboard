@@ -1,3 +1,7 @@
+# Dir
+data/
+log/
+
 # Logs
 logs
 *.log
