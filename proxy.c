@@ -31,6 +31,8 @@ struct http_session {
     struct header res_headers[100];
     int res_h_count;
     double response_time;
+    double apache_time;
+    double proxy_time;
 };
 
 void print_escaped_json(FILE *f, const char *str) {
@@ -86,6 +88,8 @@ void save_session(struct http_session *hs) {
     fprintf(f, "        \"status-code\": %d,\n", hs->status_code);
     fprintf(f, "        \"phrase\": \"%s\",\n", hs->phrase);
     fprintf(f, "        \"time-response\": %.2f,\n", hs->response_time);
+    fprintf(f, "        \"apache-time\": %.2f,\n", hs->apache_time);
+    fprintf(f, "        \"proxy_time\": %.2f,\n", hs->proxy_time);
     fprintf(f, "        \"headers\": {\n");
     for(int i = 0; i < hs->res_h_count; i++) {
         fprintf(f, "          \"%s\": \"", hs->res_headers[i].n);
@@ -304,7 +308,11 @@ int main() {
                 t.stop = 0;
                 forward(client_fd, server_fd, 0, &t, &session);
                 //controllo se l'ip o l'uri é bloccato e rispondo io al posto del server.
-                if (!isBlocked(&session)) {
+                clock_t ini = clock();
+                int blocked = isBlocked(&session);
+                clock_t fin = clock();
+                session.proxy_time = ((double) (fin - ini) * 1000.0) / CLOCKS_PER_SEC;
+                if (!blocked) {
                     forward(server_fd, client_fd, 1, &t, &session);
                 }else{
                     //rispondo a client_fd con un codice 403.
@@ -318,6 +326,42 @@ int main() {
                     t.stop = clock();
                     session.response_time = ((double) (t.stop - t.start) * 1000.0) / CLOCKS_PER_SEC;
                 }
+                //lettura log apache
+                session.apache_time = 0.0;
+                char *req_id = NULL;
+                for (int i = 0; i < session.req_h_count; i++) {
+                    if (strcmp(session.req_headers[i].n, "X-Request-ID") == 0) {
+                        req_id = session.req_headers[i].v;
+                        while(*req_id == ' ') req_id++; //rimuove spazi iniziali
+                        break;
+                    }
+                }
+
+                if (req_id != NULL) {
+                    usleep(50000); 
+                    
+                    FILE *f_log = fopen("/var/log/apache2/apache_time_access.log", "r");
+                    if (f_log != NULL) {
+                        char log_line[512];
+                        while (fgets(log_line, sizeof(log_line), f_log)) {
+                            // Se troviamo la riga con l'ID di questa sessione
+                            if (strstr(log_line, req_id) != NULL) {
+                                int a_time = 0;
+                                char *time_str = strstr(log_line, "TIME:");
+                                if (time_str != NULL) {
+                                    sscanf(time_str, "TIME:%d", &a_time);
+                                    session.apache_time = (double)a_time / 1000.0; 
+                                }
+                                break;
+                            }
+                        }
+                        fclose(f_log);
+                    }
+                }
+				
+				//aggiusto le metriche di tempo
+                session.response_time = session.response_time - session.proxy_time;
+                session.apache_time = session.apache_time - (session.response_time + session.proxy_time);
 
                 save_session(&session);
             }
@@ -329,3 +373,4 @@ int main() {
     }
     return 0;
 }
+

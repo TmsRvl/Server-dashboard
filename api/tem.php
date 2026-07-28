@@ -43,7 +43,7 @@ try {
     if($sameday === 1){
         $query = "SELECT 
             DATE_FORMAT(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(created_at) / (15 * 60)) * (15 * 60)),'%d-%m %H:%i') AS tempo,
-            (SUM(res_code NOT BETWEEN 200 AND 299) * 100.0) / COUNT(*) AS tem
+            (SUM(res_code NOT BETWEEN 200 AND 399) * 100.0) / COUNT(*) AS tem
             FROM connection
             WHERE {$filter}
             GROUP BY tempo

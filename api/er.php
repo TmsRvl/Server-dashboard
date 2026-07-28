@@ -29,7 +29,7 @@ try {
     $conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 
     $query = "SELECT 
-            (SUM(res_code NOT BETWEEN 200 AND 299) * 100.0) / COUNT(*) AS er
+            (SUM(res_code NOT BETWEEN 200 AND 399) * 100.0) / COUNT(*) AS er
             FROM connection
             WHERE {$fillter}";
     $stmt = $conn->prepare($query);

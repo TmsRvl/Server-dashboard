@@ -42,7 +42,9 @@ try {
             connection.req_uri as uri, 
             connection.res_code as code, 
             header.value as ip, 
-            connection.res_time as tempo 
+            connection.res_time as tempo_risposta,
+            connection.apache_time as tempo_apache,
+            connection.proxy_time as tempo_proxy
             FROM connection 
             INNER JOIN connection_header ON connection.id = connection_header.connection_id 
             INNER JOIN header ON connection_header.header_id = header.id 
@@ -68,3 +70,4 @@ try {
     ]);
 }
 ?>
+

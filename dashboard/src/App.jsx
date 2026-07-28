@@ -1,23 +1,14 @@
 import { useState, useEffect } from 'react';
 import { SimpleTable } from '@simple-table/react';
 import '@simple-table/react/styles.css';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer
-} from 'recharts';
+import {LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer} from 'recharts';
 
 const INTERVALLO_AGGIORNAMENTO = 5000; //in ms
 const OGGI = new Date().toISOString().split('T')[0];
 const PERIODO = 20;
 
 function App() {
-  const [paginaAttiva, setPaginaAttiva] = useState('tabella');
+  const [paginaAttiva, setPaginaAttiva] = useState('tabella');               
 
   const [query, setQuery] = useState('');
   const [datiTraffico, setDatiTraffico] = useState([
@@ -48,20 +39,20 @@ function App() {
 
 
   const colonne = [
-    { label: 'Data', accessor: 'data', minWidth: 110, width: "1.2fr", type: "date", filterable: true, align: "left" },
-    { label: 'Ora', accessor: 'ora', minWidth: 90, width: "1.0fr", filterable: false, align: "center" },
-    { label: 'Metodo', accessor: 'metodo', minWidth: 80, width: "0.8fr", type: "string", filterable: true, align: "center" },
-    { label: 'URI', accessor: 'uri', minWidth: 150, width: "2.0fr", type: "string", filterable: false, align: "left" },
+    { label: 'Data', accessor: 'data', minWidth: 110, width: "0.7fr", type: "date", filterable: true, align: "left" },
+    { label: 'Ora', accessor: 'ora', minWidth: 90, width: "0.7fr", filterable: false, align: "center" },
+    { label: 'Metodo', accessor: 'metodo', minWidth: 80, width: "0.7fr", type: "string", filterable: true, align: "center" },
+    { label: 'URI', accessor: 'uri', minWidth: 150, width: "1.6fr", type: "string", filterable: false, align: "left" },
 
     {
       label: 'Code', accessor: 'code',
       minWidth: 70,
-      width: "0.6fr",
+      width: "0.5fr",
       type: "number", filterable: true, filterType: 'number', align: "center",
       cellRenderer: ({ row }) => {
         const codice = Number(row.code);
-        const colore = (codice >= 200 && codice <= 299) ? '#0f532a' : '#720507';
-        const bgcolor = (codice >= 200 && codice <= 299) ? '#2ed573' : '#f18284';
+        const colore = (codice >= 200 && codice <= 399) ? '#0f532a' : '#720507';
+        const bgcolor = (codice >= 200 && codice <= 399) ? '#2ed573' : '#f18284';
         return (
           <span style={{ color: bgcolor, borderRadius: '5px', paddingInline: '4px', backgroundColor: colore, fontWeight: 'bold' }}>
             {codice}
@@ -69,8 +60,10 @@ function App() {
         );
       }
     },
-    { label: 'IP', accessor: 'ip', minWidth: 120, width: "1.2fr", type: "string", filterable: false, align: "center" },
-    { label: 'Tempo (ms)', accessor: 'tempo', minWidth: 100, width: "1.0fr", type: "number", filterable: true, align: "center" },
+    { label: 'IP', accessor: 'ip', minWidth: 120, width: "1.0fr", type: "string", filterable: false, align: "center" },
+    { label: 'Server (ms)', accessor: 'tempo_risposta', minWidth: 100, width: "1.0fr", type: "number", filterable: true, align: "center" },
+    { label: 'Apache (ms)', accessor: 'tempo_apache', minWidth: 100, width: "1.0fr", type: "number", filterable: true, align: "center" },
+    { label: 'Proxy (ms)', accessor: 'tempo_proxy', minWidth: 100, width: "1.0fr", type: "number", filterable: true, align: "center" },
     {
       label: '', accessor: 'id', minWidth: 80, width: "0.7fr", filterable: false, align: "center",
       cellRenderer: ({ row }) => {
@@ -107,7 +100,7 @@ function App() {
       .then(d => setEr(Number(d.data[0].er).toFixed(2)))
       .catch(err => console.error("Errore Er:", err));
 
-    fetch(`http://192.168.1.100:5554/api.php` + (query !== '' ? '?' + query : ''))
+    fetch(`http://192.168.1.100:5554/table.php` + (query !== '' ? '?' + query : ''))
       .then(res => res.json())
       .then(d => setDatiTraffico(d.data))
       .catch(err => console.error("Errore Traffico:", err));
@@ -436,7 +429,7 @@ function App() {
         {paginaAttiva === 'tempo' && (
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '80vh', width: '100%' }}>
             <div style={{ backgroundColor: '#1a1f2c', padding: '20px', borderRadius: '6px', border: '1px solid #2d3748' }}>
-              <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Andamento dei Tempi di Risposta</h3>
+              <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Andamento dei Tempi di Risposta (Server)</h3>
               <div style={{ width: '100%', height: 400 }}>
                 <ResponsiveContainer>
                   <LineChart data={tempoRispostaMedio} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
@@ -560,3 +553,4 @@ function App() {
 }
 
 export default App;
+
