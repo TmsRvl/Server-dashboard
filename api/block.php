@@ -31,6 +31,14 @@ try {
                 exit;
             }
 
+            # chiamo lo script che blocca l'ip
+            $safeIp = escapeshellarg($nuovoIp);
+            exec("sudo /home/tommaso/Desktop/Server-dashboard/gestore_ip.sh blocca $safeIp 2>&1", $output, $return_var); # 2>&1 reindirizza lo stderr nello stdout così che venga salvato in $output
+            
+            if ($return_var !== 0) {
+                throw new Exception("Errore nell'applicazione della regola iptables: " . implode(" ", $output));
+            }
+
             $datoDaScrivere = $nuovoIp . PHP_EOL;
             $res = file_put_contents($fileIp, $datoDaScrivere, FILE_APPEND | LOCK_EX);
 
@@ -55,6 +63,14 @@ try {
                     "message" => "L'IP specificato non è presente nella blacklist."
                 ]);
                 exit;
+            }
+
+            # chiamo lo script che sblocca l'ip
+            $safeIp = escapeshellarg($ipDaSbloccare);
+            exec("sudo /home/tommaso/Desktop/Server-dashboard/gestore_ip.sh sblocca $safeIp 2>&1", $output, $return_var);
+
+            if ($return_var !== 0) {
+                throw new Exception("Errore nella rimozione della regola iptables: " . implode(" ", $output));
             }
 
             $listaAggiornata = array_diff($listaIp, [$ipDaSbloccare]);
@@ -182,3 +198,4 @@ try {
     ]);
 }
 ?>
+

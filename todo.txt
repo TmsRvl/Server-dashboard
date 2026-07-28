@@ -18,7 +18,7 @@ TODO:
 - (X) testare il proxy con qualsiasi tipo di traffico (200, 206, chunked)
 
 - (X) dividere i tempi: tempi di risposta, latenze ecc..
-- ( ) blocco ip più sofisticato utilizzando iptables
+- (X) blocco ip più sofisticato utilizzando iptables
 - ( ) blocco url permettendo di utilizzare pattern
 
 - ( ) separare il frontend in mmoduli e formattare tutti i codici in inglese 

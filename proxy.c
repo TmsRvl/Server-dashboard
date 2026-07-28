@@ -14,8 +14,8 @@ struct header{
 };
 
 struct timer{
-    clock_t start;
-    clock_t stop;
+    double start;
+    double stop;
 };
 
 struct http_session {
@@ -34,6 +34,12 @@ struct http_session {
     double apache_time;
     double proxy_time;
 };
+
+double get_time_ms() {
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return t.tv_sec * 1000.0 + t.tv_nsec / 1000000.0;
+}
 
 void print_escaped_json(FILE *f, const char *str) {
     if (!str) return;
@@ -218,42 +224,14 @@ void forward(int src, int dest, int mod, struct timer *t, struct http_session *h
             break;
         }
     }
-//fine risposta server
+	//fine risposta server
     t->stop = clock();
-    hs->response_time = ((double) (t->stop - t->start) * 1000.0) / CLOCKS_PER_SEC;
+	hs->response_time = ((double) (t->stop - t->start) * 1000.0) / CLOCKS_PER_SEC;
 }
 
 int isBlocked(struct http_session *hs) {
-    int block1 = 0;
-    int block2 = 0;
+    int block = 0;
     char line[2000];
-    char *ip_to_check = NULL;
-
-    for (int i = 0; i < hs->req_h_count; i++) {
-        if (strcmp(hs->req_headers[i].n, "X-Forwarded-For") == 0) {
-            ip_to_check = hs->req_headers[i].v;
-            break;
-        }
-    }
-
-    ip_to_check++;
-
-    if (ip_to_check != NULL) {
-        FILE *f_ip = fopen("./data/ipBlocked.txt", "r");
-        if (f_ip != NULL) {
-            while (fgets(line, sizeof(line), f_ip)) {
-                // Rimuoviamo il carattere di \n
-                char* a = strstr(line, "\n");
-                *a = 0; 
-                
-                if (strcmp(line, ip_to_check) == 0) {
-                    block1 = 1;
-                    break;
-                }
-            }
-            fclose(f_ip);
-        }
-    }
 
     FILE *f_uri = fopen("./data/uriBlocked.txt", "r");
     if (f_uri != NULL) {
@@ -262,14 +240,14 @@ int isBlocked(struct http_session *hs) {
             *a = 0; 
             
             if (strcmp(line, hs->uri) == 0) {
-                block2 = 1;
+                block = 1;
                 break;
             }
         }
         fclose(f_uri);
     }
 
-    return block1 || block2;
+    return block;
 }
 
 int main() {
@@ -304,14 +282,15 @@ int main() {
             if (connect(server_fd, (struct sockaddr *)&server, sizeof(server)) == 0) {
                 struct timer t;
                 struct http_session session;
-                t.start = 0;
-                t.stop = 0;
+				t.start = 0;
+				t.stop = 0;
+
                 forward(client_fd, server_fd, 0, &t, &session);
                 //controllo se l'ip o l'uri é bloccato e rispondo io al posto del server.
-                clock_t ini = clock();
-                int blocked = isBlocked(&session);
-                clock_t fin = clock();
-                session.proxy_time = ((double) (fin - ini) * 1000.0) / CLOCKS_PER_SEC;
+                double ini = get_time_ms();
+				int blocked = isBlocked(&session);
+                double fin = get_time_ms();
+				session.proxy_time = fin - ini;
                 if (!blocked) {
                     forward(server_fd, client_fd, 1, &t, &session);
                 }else{
@@ -324,9 +303,11 @@ int main() {
                     session.res_headers;
                     write(client_fd, response, strlen(response));
                     t.stop = clock();
-                    session.response_time = ((double) (t.stop - t.start) * 1000.0) / CLOCKS_PER_SEC;
+					session.response_time = t.stop - t.start;
                 }
-                //lettura log apache
+                
+                
+				//lettura log apache
                 session.apache_time = 0.0;
                 char *req_id = NULL;
                 for (int i = 0; i < session.req_h_count; i++) {
