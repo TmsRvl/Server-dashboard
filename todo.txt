@@ -19,7 +19,7 @@ TODO:
 
 - (X) dividere i tempi: tempi di risposta, latenze ecc..
 - (X) blocco ip più sofisticato utilizzando iptables
-- ( ) blocco url permettendo di utilizzare pattern
+- (X) blocco url permettendo di utilizzare pattern
 
 - ( ) separare il frontend in mmoduli e formattare tutti i codici in inglese 
 
