@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
+#include <regex.h>
 
 struct header{
     char n[32];
@@ -228,7 +229,7 @@ void forward(int src, int dest, int mod, struct timer *t, struct http_session *h
     t->stop = clock();
 	hs->response_time = ((double) (t->stop - t->start) * 1000.0) / CLOCKS_PER_SEC;
 }
-
+/*
 int isBlocked(struct http_session *hs) {
     int block = 0;
     char line[2000];
@@ -242,6 +243,41 @@ int isBlocked(struct http_session *hs) {
             if (strcmp(line, hs->uri) == 0) {
                 block = 1;
                 break;
+            }
+        }
+        fclose(f_uri);
+    }
+
+    return block;
+}
+*/
+int isBlocked(struct http_session *hs) {
+    int block = 0;
+    char line[2000];
+
+    FILE *f_uri = fopen("./data/uriBlocked.txt", "r");
+    if (f_uri != NULL) {
+        while (fgets(line, sizeof(line), f_uri)) {
+			char* a = strstr(line, "\n");
+            *a = 0; 
+            
+			int cflags = REG_EXTENDED;
+            char *nc_flag = strstr(line, " [NC]");
+            if (nc_flag != NULL) {
+                cflags |= REG_ICASE; //attivo case insensivity
+                *nc_flag = '\0';     //toglie [NC]
+            }
+
+            regex_t regex;
+            //compila l'espressione con ogni riga nel file degli uri bloccati
+            if (regcomp(&regex, line, cflags) == 0) {
+                //controlla se l'uri é da bloccare o meno
+                if (regexec(&regex, hs->uri, 0, NULL, 0) == 0) {
+                    block = 1;
+                    regfree(&regex); //dealloca la memoria per l'espressione creata in precedenza
+                    break;
+                }
+                regfree(&regex);
             }
         }
         fclose(f_uri);
@@ -291,9 +327,43 @@ int main() {
 				int blocked = isBlocked(&session);
                 double fin = get_time_ms();
 				session.proxy_time = fin - ini;
-                if (!blocked) {
-                    forward(server_fd, client_fd, 1, &t, &session);
-                }else{
+                
+				session.apache_time = 0.0;
+				if (!blocked) {
+					forward(server_fd, client_fd, 1, &t, &session);
+					char *req_id = NULL;
+					for (int i = 0; i < session.req_h_count; i++) {
+						if (strcmp(session.req_headers[i].n, "X-Request-ID") == 0) {
+							req_id = session.req_headers[i].v;
+							while(*req_id == ' ') req_id++; //rimuove spazi iniziali
+							break;
+						}
+					}
+
+					if (req_id != NULL) {
+						usleep(50000); 
+
+						FILE *f_log = fopen("/var/log/apache2/apache_time_access.log", "r");
+						if (f_log != NULL) {
+							char log_line[512];
+							while (fgets(log_line, sizeof(log_line), f_log)) {
+								// Se troviamo la riga con l'ID di questa sessione
+								if (strstr(log_line, req_id) != NULL) {
+									int a_time = 0;
+									char *time_str = strstr(log_line, "TIME:");
+									if (time_str != NULL) {
+										sscanf(time_str, "TIME:%d", &a_time);
+										session.apache_time = (double)a_time / 1000.0; 
+									}
+									break;
+								}
+							}
+							fclose(f_log);
+						}
+					}
+					session.response_time = session.response_time - session.proxy_time;
+					session.apache_time = session.apache_time - (session.response_time + session.proxy_time);
+				}else{
                     //rispondo a client_fd con un codice 403.
                     const char *response = "HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n<html><body><h1>403 Forbidden</h1></body></html>";
                     session.res_h_count = 0;
@@ -303,46 +373,9 @@ int main() {
                     session.res_headers;
                     write(client_fd, response, strlen(response));
                     t.stop = clock();
-					session.response_time = t.stop - t.start;
+					session.response_time = 0.0;
+					//session.response_time = ((double) (t.stop - t.start) * 1000.0) / CLOCKS_PER_SEC;
                 }
-                
-                
-				//lettura log apache
-                session.apache_time = 0.0;
-                char *req_id = NULL;
-                for (int i = 0; i < session.req_h_count; i++) {
-                    if (strcmp(session.req_headers[i].n, "X-Request-ID") == 0) {
-                        req_id = session.req_headers[i].v;
-                        while(*req_id == ' ') req_id++; //rimuove spazi iniziali
-                        break;
-                    }
-                }
-
-                if (req_id != NULL) {
-                    usleep(50000); 
-                    
-                    FILE *f_log = fopen("/var/log/apache2/apache_time_access.log", "r");
-                    if (f_log != NULL) {
-                        char log_line[512];
-                        while (fgets(log_line, sizeof(log_line), f_log)) {
-                            // Se troviamo la riga con l'ID di questa sessione
-                            if (strstr(log_line, req_id) != NULL) {
-                                int a_time = 0;
-                                char *time_str = strstr(log_line, "TIME:");
-                                if (time_str != NULL) {
-                                    sscanf(time_str, "TIME:%d", &a_time);
-                                    session.apache_time = (double)a_time / 1000.0; 
-                                }
-                                break;
-                            }
-                        }
-                        fclose(f_log);
-                    }
-                }
-				
-				//aggiusto le metriche di tempo
-                session.response_time = session.response_time - session.proxy_time;
-                session.apache_time = session.apache_time - (session.response_time + session.proxy_time);
 
                 save_session(&session);
             }
