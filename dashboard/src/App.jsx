@@ -467,7 +467,7 @@ function App() {
           </div>
         )}
 
-        {/* PAGINA 4: BLOCCO INDIRIZZI IP E URI */}
+        {/* PAGINA 4: BLOCCO INDIRIZZI IP E PATH */}
         {paginaAttiva === 'blocco' && (
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '80vh', width: '100%' }}>
             <div style={{ boxSizing: 'border-box', width: '100%', maxWidth: '1000px', margin: '0 auto', backgroundColor: '#1a1f2c', padding: '30px', borderRadius: '8px', border: '1px solid #2d3748', fontFamily: 'sans-serif' }}>
@@ -485,12 +485,12 @@ function App() {
 
               <div style={{ marginBottom: '0' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', gap: '20px' }}>
-                  <input type="text" placeholder="/URI da bloccare..." value={inputUri} onChange={(e) => setInputUri(e.target.value)} style={{ flexGrow: 1, height: '45px', padding: '0 15px', fontSize: '15px', color: '#ffffff', backgroundColor: '#11151f', border: '1px solid #2d3748', borderRadius: '6px', outline: 'none' }} />
+                  <input type="text" placeholder="/path da bloccare..." value={inputUri} onChange={(e) => setInputUri(e.target.value)} style={{ flexGrow: 1, height: '45px', padding: '0 15px', fontSize: '15px', color: '#ffffff', backgroundColor: '#11151f', border: '1px solid #2d3748', borderRadius: '6px', outline: 'none' }} />
                   <button onClick={() => bloccaSblocca('uri', '1', inputUri)} style={{ width: '70px', height: '45px', fontSize: '14px', fontWeight: '600', letterSpacing: '0.5px', color: 'white', backgroundColor: '#007bff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Blocca</button>
                   <button onClick={() => bloccaSblocca('uri', '0', inputUri)} style={{ width: '70px', height: '45px', fontSize: '14px', fontWeight: '600', letterSpacing: '0.5px', color: 'white', backgroundColor: '#007bff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Sblocca</button>
                 </div>
                 <div style={{ width: '100%' }}>
-                  <textarea readOnly placeholder="URI bloccati..." value={listaUri.join('\n')} style={{ boxSizing: 'border-box', width: '100%', height: '220px', padding: '15px', color: '#94a3b8', backgroundColor: '#11151f', border: '1px solid #2d3748', borderRadius: '6px', resize: 'none', outline: 'none', fontFamily: 'monospace', fontSize: '13px', overflowY: 'scroll' }}></textarea>
+                  <textarea readOnly placeholder="Path bloccati..." value={listaUri.join('\n')} style={{ boxSizing: 'border-box', width: '100%', height: '220px', padding: '15px', color: '#94a3b8', backgroundColor: '#11151f', border: '1px solid #2d3748', borderRadius: '6px', resize: 'none', outline: 'none', fontFamily: 'monospace', fontSize: '13px', overflowY: 'scroll' }}></textarea>
                 </div>
               </div>
 
