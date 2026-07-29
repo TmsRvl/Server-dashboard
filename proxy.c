@@ -229,28 +229,7 @@ void forward(int src, int dest, int mod, struct timer *t, struct http_session *h
     t->stop = clock();
 	hs->response_time = ((double) (t->stop - t->start) * 1000.0) / CLOCKS_PER_SEC;
 }
-/*
-int isBlocked(struct http_session *hs) {
-    int block = 0;
-    char line[2000];
 
-    FILE *f_uri = fopen("./data/uriBlocked.txt", "r");
-    if (f_uri != NULL) {
-        while (fgets(line, sizeof(line), f_uri)) {
-            char* a = strstr(line, "\n");
-            *a = 0; 
-            
-            if (strcmp(line, hs->uri) == 0) {
-                block = 1;
-                break;
-            }
-        }
-        fclose(f_uri);
-    }
-
-    return block;
-}
-*/
 int isBlocked(struct http_session *hs) {
     int block = 0;
     char line[2000];
@@ -306,83 +285,83 @@ int main() {
     signal(SIGCHLD, SIG_IGN); // evita di tenere attivi processi zombie
 
     while (1) {
-        client_fd = accept(proxy_fd, NULL, NULL);
-        //printf("Nuova connessione\n");
+	    client_fd = accept(proxy_fd, NULL, NULL);
+	    //printf("Nuova connessione\n");
 
-        if (fork() == 0) { // processo figlio
-            server_fd = socket(AF_INET, SOCK_STREAM, 0);
-            server.sin_family = AF_INET;
-            server.sin_port = htons(81);
-            server.sin_addr.s_addr = inet_addr("127.0.0.1");
+	    if (fork() == 0) { // processo figlio
+		    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+		    server.sin_family = AF_INET;
+		    server.sin_port = htons(81);
+		    server.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-            if (connect(server_fd, (struct sockaddr *)&server, sizeof(server)) == 0) {
-                struct timer t;
-                struct http_session session;
-				t.start = 0;
-				t.stop = 0;
+		    if (connect(server_fd, (struct sockaddr *)&server, sizeof(server)) == 0) {
+			    struct timer t;
+			    struct http_session session;
+			    t.start = 0;
+			    t.stop = 0;
 
-                forward(client_fd, server_fd, 0, &t, &session);
-                //controllo se l'ip o l'uri é bloccato e rispondo io al posto del server.
-                double ini = get_time_ms();
-				int blocked = isBlocked(&session);
-                double fin = get_time_ms();
-				session.proxy_time = fin - ini;
-                
-				session.apache_time = 0.0;
-				if (!blocked) {
-					forward(server_fd, client_fd, 1, &t, &session);
-					char *req_id = NULL;
-					for (int i = 0; i < session.req_h_count; i++) {
-						if (strcmp(session.req_headers[i].n, "X-Request-ID") == 0) {
-							req_id = session.req_headers[i].v;
-							while(*req_id == ' ') req_id++; //rimuove spazi iniziali
-							break;
-						}
-					}
+			    forward(client_fd, server_fd, 0, &t, &session);
+			    //controllo se l'ip o l'uri é bloccato e rispondo io al posto del server.
+			    double ini = get_time_ms();
+			    int blocked = isBlocked(&session);
+			    double fin = get_time_ms();
+			    session.proxy_time = fin - ini;
 
-					if (req_id != NULL) {
-						usleep(50000); 
+			    session.apache_time = 0.0;
+			    if (!blocked) {
+				    forward(server_fd, client_fd, 1, &t, &session);
+				    char *req_id = NULL;
+				    for (int i = 0; i < session.req_h_count; i++) {
+					    if (strcmp(session.req_headers[i].n, "X-Request-ID") == 0) {
+						    req_id = session.req_headers[i].v;
+						    while(*req_id == ' ') req_id++; //rimuove spazi iniziali
+						    break;
+					    }
+				    }
 
-						FILE *f_log = fopen("/var/log/apache2/apache_time_access.log", "r");
-						if (f_log != NULL) {
-							char log_line[512];
-							while (fgets(log_line, sizeof(log_line), f_log)) {
-								// Se troviamo la riga con l'ID di questa sessione
-								if (strstr(log_line, req_id) != NULL) {
-									int a_time = 0;
-									char *time_str = strstr(log_line, "TIME:");
-									if (time_str != NULL) {
-										sscanf(time_str, "TIME:%d", &a_time);
-										session.apache_time = (double)a_time / 1000.0; 
-									}
-									break;
-								}
-							}
-							fclose(f_log);
-						}
-					}
-					session.response_time = session.response_time - session.proxy_time;
-					session.apache_time = session.apache_time - (session.response_time + session.proxy_time);
-				}else{
-                    //rispondo a client_fd con un codice 403.
-                    const char *response = "HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n<html><body><h1>403 Forbidden</h1></body></html>";
-                    session.res_h_count = 0;
-                    sprintf(session.res_ver, "HTTP/1.1");
-                    sprintf(session.phrase, "Forbidden");
-                    session.status_code = 403;
-                    session.res_headers;
-                    write(client_fd, response, strlen(response));
-                    t.stop = clock();
-					session.response_time = 0.0;
-					//session.response_time = ((double) (t.stop - t.start) * 1000.0) / CLOCKS_PER_SEC;
-                }
+				    if (req_id != NULL) {
+					    usleep(50000); 
 
-                save_session(&session);
-            }
-            close(server_fd);
-            close(client_fd);
-            exit(0);
-        }
+					    FILE *f_log = fopen("/var/log/apache2/apache_time_access.log", "r");
+					    if (f_log != NULL) {
+						    char log_line[512];
+						    while (fgets(log_line, sizeof(log_line), f_log)) {
+							    // Se troviamo la riga con l'ID di questa sessione
+							    if (strstr(log_line, req_id) != NULL) {
+								    int a_time = 0;
+								    char *time_str = strstr(log_line, "TIME:");
+								    if (time_str != NULL) {
+									    sscanf(time_str, "TIME:%d", &a_time);
+									    session.apache_time = (double)a_time / 1000.0; 
+								    }
+								    break;
+							    }
+						    }
+						    fclose(f_log);
+					    }
+				    }
+				    session.response_time = session.response_time - session.proxy_time;
+				    session.apache_time = session.apache_time - (session.response_time + session.proxy_time);
+			    }else{
+				    //rispondo a client_fd con un codice 403.
+				    const char *response = "HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n<html><body><h1>403 Forbidden</h1></body></html>";
+				    session.res_h_count = 0;
+				    sprintf(session.res_ver, "HTTP/1.1");
+				    sprintf(session.phrase, "Forbidden");
+				    session.status_code = 403;
+				    session.res_headers;
+				    write(client_fd, response, strlen(response));
+				    t.stop = clock();
+				    session.response_time = 0.0;
+				    //session.response_time = ((double) (t.stop - t.start) * 1000.0) / CLOCKS_PER_SEC;
+			    }
+
+			    save_session(&session);
+		    }
+		    close(server_fd);
+		    close(client_fd);
+		    exit(0);
+	    }
         close(client_fd);
     }
     return 0;
