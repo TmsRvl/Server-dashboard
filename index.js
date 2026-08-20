@@ -49,11 +49,13 @@ async function saveOnDb(connectionData) {
     const req = connectionData.request;
     const res = connectionData.response;
 
-    const queryConnection = 'INSERT INTO connection (req_version, req_uri, req_method, res_version, res_code, res_phrase, res_time, apache_time, proxy_time, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, FROM_UNIXTIME(?))';
-    const valConnection = [
+//    const queryConnection = 'INSERT INTO connection (req_version, req_uri, req_method, res_version, res_code, res_phrase, res_time, apache_time, proxy_time, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, FROM_UNIXTIME(?))';
+    const queryConnection = 'INSERT INTO connection (req_version, req_uri, req_method, res_version, res_code, res_phrase, res_time, apache_time, proxy_time, cpu, ram, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FROM_UNIXTIME(?))';
+	const valConnection = [
       req['version'], req['uri'], req['method'],
       res['version'], res['status-code'], res['phrase'], res['time-response'], 
       res['apache-time'], res['proxy_time'], 
+	  req['cpu'], req['ram'], 
       req['time']
     ];
     

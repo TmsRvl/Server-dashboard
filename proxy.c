@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <sys/time.h>
 #include <regex.h>
+#include <sys/sysinfo.h>
 
 struct header{
     char n[32];
@@ -34,6 +35,8 @@ struct http_session {
     double response_time;
     double apache_time;
     double proxy_time;
+	double cpu;
+	double ram;
 };
 
 double get_time_ms() {
@@ -77,6 +80,8 @@ void save_session(struct http_session *hs) {
 
     // REQUEST
     fprintf(f, "      \"request\": {\n");
+    fprintf(f, "        \"cpu\": \"%f\",\n", hs->cpu);
+    fprintf(f, "        \"ram\": \"%f\",\n", hs->ram);
     fprintf(f, "        \"time\": \"%ld\",\n", hs->time);
     fprintf(f, "        \"version\": \"%s\",\n", hs->req_ver);
     fprintf(f, "        \"uri\": \"%s\",\n", hs->uri);
@@ -265,6 +270,79 @@ int isBlocked(struct http_session *hs) {
     return block;
 }
 
+typedef struct {
+    unsigned long long user, nice, system, idle, iowait, irq, softirq, steal;
+} CpuStats;
+
+void get_cpu_stats(CpuStats *stats) {
+    FILE *fp = fopen("/proc/stat", "r");
+    if (!fp) return;
+
+    char buffer[256];
+    if (fgets(buffer, sizeof(buffer), fp)) {
+        sscanf(buffer, "cpu %llu %llu %llu %llu %llu %llu %llu %llu",
+               &stats->user, &stats->nice, &stats->system, &stats->idle,
+               &stats->iowait, &stats->irq, &stats->softirq, &stats->steal);
+    }
+    fclose(fp);
+}
+
+double get_cpu_usage(int sample_delay_ms) {
+    CpuStats s1, s2;
+    get_cpu_stats(&s1);
+    usleep(sample_delay_ms * 1000); // Intervallo di campionamento
+    get_cpu_stats(&s2);
+
+    unsigned long long prev_idle = s1.idle + s1.iowait;
+    unsigned long long idle = s2.idle + s2.iowait;
+
+    unsigned long long prev_non_idle = s1.user + s1.nice + s1.system + s1.irq + s1.softirq + s1.steal;
+    unsigned long long non_idle = s2.user + s2.nice + s2.system + s2.irq + s2.softirq + s2.steal;
+
+    unsigned long long prev_total = prev_idle + prev_non_idle;
+    unsigned long long total = idle + non_idle;
+
+    unsigned long long total_diff = total - prev_total;
+    unsigned long long idle_diff = idle - prev_idle;
+
+    if (total_diff == 0) return 0.0;
+    return (double)(total_diff - idle_diff) * 100.0 / (double)total_diff;
+}
+
+double get_ram_usage() {
+    FILE *fp = fopen("/proc/meminfo", "r");
+    if (!fp) {
+        return 0.0;
+    }
+
+    char line[256];
+    unsigned long long mem_total = 0;
+    unsigned long long mem_available = 0;
+    int found = 0;
+
+    // Legge riga per riga fino a trovare sia MemTotal che MemAvailable
+    while (fgets(line, sizeof(line), fp)) {
+        if (sscanf(line, "MemTotal: %llu kB", &mem_total) == 1) {
+            found++;
+        } else if (sscanf(line, "MemAvailable: %llu kB", &mem_available) == 1) {
+            found++;
+        }
+
+        // Se abbiamo trovato entrambi i campi, possiamo uscire dal ciclo
+        if (found == 2) {
+            break;
+        }
+    }
+    fclose(fp);
+
+    if (mem_total == 0 || found < 2) {
+        return 0.0;
+    }
+
+    unsigned long long used_ram = mem_total - mem_available;
+    return ((double)used_ram / (double)mem_total) * 100.0; 
+}
+
 int main() {
     int proxy_fd, client_fd, server_fd;
     struct sockaddr_in proxy, server;
@@ -356,6 +434,8 @@ int main() {
 				    //session.response_time = ((double) (t.stop - t.start) * 1000.0) / CLOCKS_PER_SEC;
 			    }
 
+				session.cpu = get_cpu_usage(500);
+				session.ram = get_ram_usage();
 			    save_session(&session);
 		    }
 		    close(server_fd);
