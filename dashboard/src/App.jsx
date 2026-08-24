@@ -11,6 +11,7 @@ function App() {
   const [paginaAttiva, setPaginaAttiva] = useState('tabella');               
 
   const [query, setQuery] = useState('');
+			<h3 style={{ marginTop: 0, marginBottom: '20px' }}>Carico Risorse di Sistema (CPU & RAM)</h3>
   const [datiTraffico, setDatiTraffico] = useState([
     { metodo: 'Caricamento...', uri: 'Attendi...', code: 0, ip: "0.0.0.0", tempo: 0 }
   ]);
@@ -25,6 +26,8 @@ function App() {
     { tempo: "...", tem: "0.00" }
   ]);
 
+  const [datiPrestazioni, setDatiPrestazioni] = useState([]);
+	
   const [filtroDataInizio, setFiltroDataInizio] = useState('');
   const [filtroDataFine, setFiltroDataFine] = useState('');
   const [filtroOraInizio, setFiltroOraInizio] = useState('');
@@ -113,7 +116,22 @@ function App() {
     }, INTERVALLO_AGGIORNAMENTO);
 
     return () => clearInterval(intervalId);
-  }, [query]);
+	}, [query]);
+
+  useEffect(() => {
+		  let intervalId;
+
+		  if (paginaAttiva === 'prestazioni') {
+		  caricaPrestazioni(); // Richiesta immediata appena si entra nella scheda
+		  intervalId = setInterval(() => {
+				  caricaPrestazioni();
+				  }, 3000); // Polling a intervalli di 1 secondo (1000 ms)
+		  }
+
+		  return () => {
+		  if (intervalId) clearInterval(intervalId); // Cleanup al cambio tab o smontaggio
+		  };
+		  }, [paginaAttiva]);
 
   const trm = () => {
     fetch(`http://192.168.1.100:5554/trm.php` + (query !== '' ? '?' + query : ''))
@@ -129,6 +147,15 @@ function App() {
       .catch(err => console.error("Errore TEM:", err));
   };
 
+  const caricaPrestazioni = () => {
+	  fetch(`http://192.168.1.100:5554/perf.php`)
+		  .then(res => res.json())
+		  .then(d => {
+			if (d.status === "success") {
+				setDatiPrestazioni(d.data);
+			}})
+	  .catch(err => console.error("Errore Prestazioni:", err));
+  };
 
   const mostraDettagli = (id) => {
     fetch(`http://192.168.1.100:5554/info.php?id=${id}`)
@@ -350,6 +377,9 @@ function App() {
         <button style={stileBottoneMenu(paginaAttiva === 'errori')} onClick={() => { setTimeout(() => setPaginaAttiva('errori'), 200); tem(); }}>
           Tasso Errore
         </button>
+		<button style={stileBottoneMenu(paginaAttiva === 'prestazioni')} onClick={() => { setTimeout(() => setPaginaAttiva('prestazioni'), 200); caricaPrestazioni(); }}>
+  			Prestazioni
+		</button>
         <button style={stileBottoneMenu(paginaAttiva === 'blocco')} onClick={() => { setPaginaAttiva('blocco'), caricaLista('ip'), caricaLista('uri') }}>
           Blacklists
         </button>
@@ -465,9 +495,48 @@ function App() {
               </div>
             </div>
           </div>
-        )}
+		  )}
+		{/* PAGINA 4: GRAFICI DI PRESTAZIONE */}
+		{paginaAttiva === 'prestazioni' && (
+				<div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', paddingBottom: '30px' }}>
+				{/* GRAFICO 1: Tempi di risposta */}
+				<div style={{ backgroundColor: '#1a1f2c', padding: '20px', borderRadius: '6px', border: '1px solid #2d3748' }}>
+				<div style={{ width: '100%', height: 350 }}>
+				<ResponsiveContainer>
+				<LineChart data={datiPrestazioni} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+				<CartesianGrid strokeDasharray="3 3" stroke="#2d3748" />
+				<YAxis unit="ms" stroke="#cbd5e1" tick={{ fontSize: 11 }} />
+				<Tooltip contentStyle={{ backgroundColor: '#1a1f2c', borderColor: '#2d3748', color: '#fff' }} />
+				<Legend />
+				<Line type="monotone" dataKey="avg_res_time" name="Server (ms)" stroke="#007bff" strokeWidth={2} dot={false} />
+				<Line type="monotone" dataKey="avg_apache_time" name="Apache (ms)" stroke="#e056fd" strokeWidth={2} dot={false} />
+				</LineChart>
+				</ResponsiveContainer>
+				</div>
+				</div>
 
-        {/* PAGINA 4: BLOCCO INDIRIZZI IP E PATH */}
+				{/* GRAFICO 2: Utilizzo CPU, RAM e Richieste/sec */}
+				<div style={{ backgroundColor: '#1a1f2c', padding: '20px', borderRadius: '6px', border: '1px solid #2d3748' }}>
+				<div style={{ width: '100%', height: 350 }}>
+				<ResponsiveContainer>
+				<LineChart data={datiPrestazioni} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+				<CartesianGrid strokeDasharray="3 3" stroke="#2d3748" />
+				<YAxis yAxisId="left" unit="%" stroke="#cbd5e1" domain={[0, 100]} tick={{ fontSize: 11 }} />
+				<YAxis yAxisId="right" orientation="right" stroke="#2ed573" tick={{ fontSize: 11 }} />
+				<Tooltip contentStyle={{ backgroundColor: '#1a1f2c', borderColor: '#2d3748', color: '#fff' }} />
+				<Legend />
+				<Line yAxisId="left" type="monotone" dataKey="avg_cpu" name="CPU (%)" stroke="#ff9f43" strokeWidth={2} dot={false} />
+				<Line yAxisId="left" type="monotone" dataKey="avg_ram" name="RAM (%)" stroke="#00d2d3" strokeWidth={2} dot={false} />
+				<Line yAxisId="right" type="monotone" dataKey="tot_connessioni" name="N° richieste" stroke="#2ed573" strokeWidth={2} dot={false} />
+				</LineChart>
+				</ResponsiveContainer>
+				</div>
+				</div>
+
+				</div>
+				)}
+
+        {/* PAGINA 5: BLOCCO INDIRIZZI IP E PATH */}
         {paginaAttiva === 'blocco' && (
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '80vh', width: '100%' }}>
             <div style={{ boxSizing: 'border-box', width: '100%', maxWidth: '1000px', margin: '0 auto', backgroundColor: '#1a1f2c', padding: '30px', borderRadius: '8px', border: '1px solid #2d3748', fontFamily: 'sans-serif' }}>

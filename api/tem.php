@@ -40,33 +40,32 @@ try {
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 
-    if($sameday === 1){
-        $query = "SELECT 
-            DATE_FORMAT(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(created_at) / (15 * 60)) * (15 * 60)),'%d-%m %H:%i') AS tempo,
+    if ($sameday === 1) {
+        $query = "SELECT
+            DATE_FORMAT(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(MIN(created_at)) / (15 * 60)) * (15 * 60)), '%d-%m %H:%i') AS tempo,
             (SUM(res_code NOT BETWEEN 200 AND 399) * 100.0) / COUNT(*) AS tem
             FROM connection
             WHERE {$filter}
-            GROUP BY tempo
-            ORDER BY tempo";
-    }else if ($differenza->days < 3 && isset($_GET['dataini'])){
-        $query = "SELECT 
-            DATE_FORMAT(created_at, '%d-%m %H:00') AS tempo,
+            GROUP BY FLOOR(UNIX_TIMESTAMP(created_at) / (15 * 60))
+            ORDER BY MIN(created_at) ASC";
+    } else if ($daysDiff < 3 && isset($_GET['dataini'])) {
+        $query = "SELECT
+            DATE_FORMAT(MIN(created_at), '%d-%m %H:00') AS tempo,
             (SUM(res_code NOT BETWEEN 200 AND 299) * 100.0) / COUNT(*) AS tem
             FROM connection
             WHERE {$filter}
-            GROUP BY tempo
-            ORDER BY tempo";
-    }else {
-        $query = "SELECT 
-            DATE_FORMAT(created_at, '%d-%m') AS tempo,
+            GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d %H')
+            ORDER BY MIN(created_at) ASC";
+    } else {
+        $query = "SELECT
+            DATE_FORMAT(MIN(created_at), '%d-%m') AS tempo,
             (SUM(res_code NOT BETWEEN 200 AND 299) * 100.0) / COUNT(*) AS tem
             FROM connection
             WHERE {$filter}
-            GROUP BY tempo
-            ORDER BY tempo";
+            GROUP BY DATE(created_at)
+            ORDER BY MIN(created_at) ASC";
     }
 
-    
     $stmt = $conn->prepare($query);
     $stmt->execute();
 
